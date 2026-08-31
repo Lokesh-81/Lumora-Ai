@@ -862,17 +862,33 @@ const GROUNDING = `You must analyze ONLY the real data provided in the prompt (Y
 
 /* ---------------------------- Options Detection --------------------------- */
 
+import { parseOptionQuery } from "@/lib/instrument"
+
 type OptionDetails = {
   underlying: string
   strike: string
   expiry: string
   type: "CALL" | "PUT"
   raw: string
+  canonicalSymbol?: string
 }
 
 const INDEX_NAMES = /\b(NIFTY|BANKNIFTY|FINNIFTY|MIDCPNIFTY|SENSEX|BANKEX|NIFTYMIDCAP)\b/i
 
 function parseOptionName(name: string): OptionDetails | null {
+  // Use universal option parser first
+  const parsed = parseOptionQuery(name)
+  if (parsed && parsed.type === "option" && parsed.strike && parsed.optionType) {
+    return {
+      underlying: parsed.underlying || parsed.underlyingCode || "NIFTY 50",
+      strike: String(parsed.strike),
+      expiry: parsed.expiry || "Active",
+      type: parsed.optionType === "CE" ? "CALL" : "PUT",
+      raw: name,
+      canonicalSymbol: parsed.symbol,
+    }
+  }
+
   // Pattern 1: "NIFTY JUL 24000 CE" — spaced format
   const spaced = name.match(/^(.+?)\s+([A-Z]{3}\d*)\s+([\d,.]+)\s+(CE|PE)\s*$/i)
   if (spaced) {
@@ -920,6 +936,7 @@ function parseOptionName(name: string): OptionDetails | null {
 }
 
 function isOptionName(name: string): boolean {
+  if (parseOptionQuery(name)?.type === "option") return true
   // Direct CE/PE check
   if (/\b(CE|PE)\b/i.test(name)) return true
   // Index option names without explicit CE/PE but containing index + number + C/P
@@ -941,12 +958,27 @@ export async function generateAnalysis(input: {
   context: string
   reasoning?: ReasoningObject
 }): Promise<Analysis> {
-  const isOption = isOptionName(input.name)
-  const optionDetails = isOption ? parseOptionName(input.name) : null
+  const isOption = isOptionName(input.name) || !!input.reasoning?.derivative?.isDerivative
+  const optionDetails: OptionDetails | null = input.reasoning?.derivative
+    ? {
+        underlying: input.reasoning.derivative.underlyingName,
+        strike: String(input.reasoning.derivative.strike ?? ""),
+        expiry: input.reasoning.derivative.expiry || "Active",
+        type: (input.reasoning.derivative.optionType === "CE" ? "CALL" : "PUT") as "CALL" | "PUT",
+        raw: input.name,
+        canonicalSymbol: input.reasoning.derivative.canonicalSymbol,
+      }
+    : (isOption ? parseOptionName(input.name) : null)
 
   const grounding = GROUNDING
   const contractLine = isOption && optionDetails
-    ? `CONTRACT: ${optionDetails.underlying} ${optionDetails.strike} ${optionDetails.type} expiring ${optionDetails.expiry}`
+    ? `CRITICAL CONTRACT MANDATE (DO NOT CHANGE OR DRIFT):
+Target Contract: ${optionDetails.underlying} ${optionDetails.strike} ${optionDetails.type} (${optionDetails.type === "CALL" ? "CE" : "PE"})
+Strike: ${optionDetails.strike}
+Option Type: ${optionDetails.type}
+Expiry: ${optionDetails.expiry}
+You are exclusively analyzing this EXACT contract (${optionDetails.underlying} ${optionDetails.strike} ${optionDetails.type}).
+Under NO circumstances may you substitute, invent, or analyze any other strike, expiry, or contract.`
     : ""
 
   const system = isOption
@@ -1158,9 +1190,11 @@ GROUNDING: ${grounding}`
 
   try {
     const userPrompt = isOption
-      ? `Instrument: ${input.name} | Underlying: ${optionDetails?.underlying ?? "N/A"} ${optionDetails?.strike ?? "N/A"} ${optionDetails?.type ?? "N/A"} exp ${optionDetails?.expiry ?? "N/A"} | Horizon: ${input.horizon}
+      ? `EXACT CONTRACT: ${optionDetails?.underlying ?? input.name} Strike ${optionDetails?.strike ?? "N/A"} ${optionDetails?.type ?? "N/A"} (Expiry: ${optionDetails?.expiry ?? "N/A"}) | Canonical: ${optionDetails?.canonicalSymbol ?? input.name} | Horizon: ${input.horizon}
 
-Analyse the underlying first. Then assess the option chain data. Every conclusion must reference specific data points below.
+MANDATORY DIRECTIVE: You are analyzing the EXACT selected contract: ${optionDetails?.underlying ?? input.name} ${optionDetails?.strike ?? ""} ${optionDetails?.type ?? ""} (Strike: ${optionDetails?.strike ?? "N/A"}, Expiry: ${optionDetails?.expiry ?? "N/A"}).
+Do NOT substitute or analyze any other strike, expiry, or contract.
+Analyse the underlying first. Then assess the derivative contract specifically for strike ${optionDetails?.strike ?? "selected strike"} (${optionDetails?.type ?? "option"}). Every conclusion must reference specific data points below.
 
 ━━ DATA ━━
 ${dataForAI}

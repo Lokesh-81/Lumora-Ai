@@ -8,8 +8,9 @@ import { SymbolSearch, type SearchResult } from "@/components/symbol-search"
 import { computeIndicators } from "@/lib/indicators"
 import { REGION_CONFIG, displaySymbol, type Quote, type Region, type Candle } from "@/lib/market"
 import { currencySymbol, logoUrl, formatCurrency, getCurrencyForSymbol } from "@/lib/utils"
-import { TrendingUp, TrendingDown, Clock, Globe, Activity, BarChart3, TrendingUpDown, AlertCircle, Building2, Hash, DollarSign, Percent, Layers, LineChart, Target, ShieldAlert, Scale } from "lucide-react"
+import { TrendingUp, TrendingDown, Clock, Globe, Activity, BarChart3, TrendingUpDown, AlertCircle, Building2, Hash, DollarSign, Percent, Layers, LineChart, Target, ShieldAlert, Scale, Calculator, Info } from "lucide-react"
 import Link from "next/link"
+import { calculateTheoreticalOption } from "@/lib/derivatives/black-scholes"
 
 const POLL_INTERVAL = 12_000
 
@@ -571,60 +572,126 @@ const StatsGrid = memo(function StatsGrid({ quote, ccySym }: { quote: Quote | nu
   const isDerivative = !!quote?.derivativeInfo?.isDerivative
   const deriv = quote?.derivativeInfo
 
-  const stats = useMemo(() => {
-    if (isDerivative && deriv) {
-      const items: { label: string; value: React.ReactNode; span?: "sm" | "md" | "lg" }[] = [
-        { label: "Trading Symbol", value: deriv.tradingsymbol || quote?.symbol, span: "md" as const },
-        { label: "Underlying Spot", value: `${deriv.underlyingName} (${ccySym}${deriv.underlyingPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })})`, span: "md" as const },
-        { label: "Strike Price", value: <span className="font-mono">{ccySym}{deriv.strike?.toLocaleString() ?? "—"}</span> },
-        { label: "Option Type", value: <span className={`font-mono font-bold ${deriv.optionType === "CE" ? "text-emerald-500" : "text-rose-500"}`}>{deriv.optionType === "CE" ? "Call (CE)" : "Put (PE)"}</span> },
-        { label: "Expiry Date", value: deriv.expiry || "—" },
-        { label: "Segment / Exch", value: `${deriv.segment} · ${quote?.exchange || "NSE"}` },
-        { label: "Lot Size", value: deriv.lotSize ? `${deriv.lotSize} units` : "—" },
-        { label: "Market Status", value: STATE_LABEL[quote?.marketState ?? "CLOSED"] },
-        { label: "Option Premium (LTP)", value: deriv.hasLiveData && quote?.price ? <AnimatedMoney value={quote.price} ccySym={ccySym} /> : <span className="text-muted-foreground">—</span> },
-        { label: "Open Interest", value: deriv.openInterest != null ? <AnimatedBigNum value={deriv.openInterest} /> : <span className="text-muted-foreground">—</span> },
-        { label: "Implied Vol (IV)", value: deriv.iv != null ? <span className="tabular-nums">{deriv.iv.toFixed(2)}%</span> : <span className="text-muted-foreground">—</span> },
-        { label: "Delta (Δ)", value: deriv.delta != null ? <span className="tabular-nums">{deriv.delta.toFixed(4)}</span> : <span className="text-muted-foreground">—</span> },
-        { label: "Gamma (Γ)", value: deriv.gamma != null ? <span className="tabular-nums">{deriv.gamma.toFixed(5)}</span> : <span className="text-muted-foreground">—</span> },
-        { label: "Theta (θ)", value: deriv.theta != null ? <span className="tabular-nums">{deriv.theta.toFixed(2)}</span> : <span className="text-muted-foreground">—</span> },
-        { label: "Vega (ν)", value: deriv.vega != null ? <span className="tabular-nums">{deriv.vega.toFixed(2)}</span> : <span className="text-muted-foreground">—</span> },
-        { label: "Bid / Ask", value: deriv.bid != null && deriv.ask != null ? <span className="tabular-nums">{ccySym}{deriv.bid} / {ccySym}{deriv.ask}</span> : <span className="text-muted-foreground">—</span> },
-        { label: "Volume", value: quote?.volume != null ? <AnimatedBigNum value={quote.volume} /> : <span className="text-muted-foreground">—</span> },
-        { label: "Currency", value: quote?.currency ? `${ccySym} ${quote.currency}`.trim() : null },
-      ]
-      return items.filter((s) => s.value != null)
-    }
-
-    const items: { label: string; value: React.ReactNode; span?: "sm" | "md" | "lg" }[] = [
-      { label: "Currency", value: quote?.currency ? `${ccySym} ${quote.currency}`.trim() : null },
-      { label: "Market Status", value: STATE_LABEL[quote?.marketState ?? "CLOSED"] },
-      { label: "Exchange", value: quote?.exchange || null },
-      { label: "Previous Close", value: quote?.previousClose != null ? <AnimatedMoney value={quote.previousClose} ccySym={ccySym} /> : null },
-      { label: "Open", value: quote?.open != null ? <AnimatedMoney value={quote.open} ccySym={ccySym} /> : null },
-      { label: "Day High", value: quote?.dayHigh != null ? <AnimatedMoney value={quote.dayHigh} ccySym={ccySym} /> : null },
-      { label: "Day Low", value: quote?.dayLow != null ? <AnimatedMoney value={quote.dayLow} ccySym={ccySym} /> : null },
-      { label: "Volume", value: quote?.volume != null ? <AnimatedBigNum value={quote.volume} /> : null },
-      { label: "Market Cap", value: quote?.marketCap != null ? <AnimatedBigNum value={quote.marketCap} /> : null },
-      { label: "P/E (TTM)", value: quote?.trailingPE != null ? <span className="tabular-nums">{quote.trailingPE.toFixed(2)}</span> : null },
-      { label: "EPS (TTM)", value: quote?.eps != null ? <span className="tabular-nums">{quote.eps.toFixed(2)}</span> : null },
-      { label: "Dividend Yield", value: quote?.dividendYield != null ? <span className="tabular-nums">{quote.dividendYield.toFixed(2)}%</span> : null },
-      { label: "Beta", value: quote?.beta != null ? <span className="tabular-nums">{quote.beta.toFixed(2)}</span> : null },
-      { label: "52W High", value: quote?.fiftyTwoWeekHigh != null ? <AnimatedMoney value={quote.fiftyTwoWeekHigh} ccySym={ccySym} /> : null },
-      { label: "52W Low", value: quote?.fiftyTwoWeekLow != null ? <AnimatedMoney value={quote.fiftyTwoWeekLow} ccySym={ccySym} /> : null },
-      { label: "52W Range", value: quote?.fiftyTwoWeekLow != null && quote?.fiftyTwoWeekHigh != null ? `${quote.fiftyTwoWeekLow.toFixed(0)}–${quote.fiftyTwoWeekHigh.toFixed(0)}` : null, span: "md" as const },
-      { label: "Sector", value: !isIndex && quote?.sector ? quote.sector : null, span: "md" as const },
-      { label: "Industry", value: !isIndex && quote?.industry ? quote.industry : null, span: "md" as const },
-      { label: "CEO", value: !isIndex && !isCrypto && quote?.ceo ? quote.ceo : null, span: "md" as const },
-    ]
-    return items.filter((s) => s.value != null)
-  }, [quote, ccySym, isIndex, isCrypto, isDerivative, deriv])
-
   const spanMap = { sm: "col-span-1", md: "col-span-2 sm:col-span-2 md:col-span-3", lg: "col-span-2 sm:col-span-4 md:col-span-6" }
+
+  if (isDerivative && deriv) {
+    // Calculate theoretical metrics if in free mode
+    const expDate = deriv.expiry ? new Date(deriv.expiry) : new Date()
+    const diffMs = expDate.getTime() - Date.now()
+    const days = Math.max(0.5, diffMs / (1000 * 60 * 60 * 24))
+    const timeToExpiryYears = days / 365
+    const theo = calculateTheoreticalOption(
+      deriv.underlyingPrice || 0,
+      deriv.strike || 0,
+      timeToExpiryYears,
+      0.15,
+      0.065,
+      deriv.optionType ?? "CE"
+    )
+
+    const observedItems = [
+      { label: "Trading Symbol", value: deriv.tradingsymbol || quote?.symbol, span: "md" as const },
+      { label: "Underlying Spot", value: `${deriv.underlyingName} (${ccySym}${deriv.underlyingPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })})`, span: "md" as const },
+      { label: "Strike Price", value: <span className="font-mono">{ccySym}{deriv.strike?.toLocaleString() ?? "—"}</span> },
+      { label: "Option Type", value: <span className={`font-mono font-bold ${deriv.optionType === "CE" ? "text-emerald-500" : "text-rose-500"}`}>{deriv.optionType === "CE" ? "Call (CE)" : "Put (PE)"}</span> },
+      { label: "Expiry Date", value: deriv.expiry ? `${deriv.expiry} (${days.toFixed(0)}d)` : "—" },
+      { label: "Segment / Exch", value: `${deriv.segment} · ${quote?.exchange || "NSE"}` },
+      { label: "Lot Size", value: deriv.lotSize ? `${deriv.lotSize} units` : "—" },
+      { label: "Market Status", value: STATE_LABEL[quote?.marketState ?? "CLOSED"] },
+      { label: "Option Premium (LTP)", value: deriv.hasLiveData && quote?.price ? <AnimatedMoney value={quote.price} ccySym={ccySym} /> : <span className="text-muted-foreground font-mono text-xs">Unavailable (Free Tier)</span> },
+      { label: "Open Interest", value: deriv.openInterest != null ? <AnimatedBigNum value={deriv.openInterest} /> : <span className="text-muted-foreground font-mono text-xs">Unavailable (Free Tier)</span> },
+      { label: "Real Implied Vol (IV)", value: deriv.iv != null ? <span className="tabular-nums">{deriv.iv.toFixed(2)}%</span> : <span className="text-muted-foreground font-mono text-xs">Unavailable (Free Tier)</span> },
+      { label: "Traded Volume", value: quote?.volume != null ? <AnimatedBigNum value={quote.volume} /> : <span className="text-muted-foreground font-mono text-xs">Unavailable (Free Tier)</span> },
+    ]
+
+    const theoreticalItems = [
+      { label: "Theoretical Fair Value", value: <span className="font-mono font-bold text-amber-400">{ccySym}{theo.theoreticalPrice.toFixed(2)} <span className="text-[10px] uppercase tracking-wider text-amber-500/80 font-normal">[MODELLED]</span></span>, span: "md" as const },
+      { label: "Modelled Moneyness", value: <span className={`font-mono font-bold ${theo.moneyness === "ITM" ? "text-emerald-400" : theo.moneyness === "OTM" ? "text-rose-400" : "text-sky-400"}`}>{theo.moneyness}</span> },
+      { label: "Modelled Break-even", value: <span className="font-mono">{ccySym}{theo.breakEven.toFixed(2)}</span> },
+      { label: "Intrinsic Value", value: <span className="font-mono">{ccySym}{theo.intrinsicValue.toFixed(2)}</span> },
+      { label: "Time Value", value: <span className="font-mono">{ccySym}{theo.timeValue.toFixed(2)}</span> },
+      { label: "Modelled Delta (Δ)", value: <span className="font-mono tabular-nums">{theo.delta.toFixed(4)}</span> },
+      { label: "Modelled Gamma (Γ)", value: <span className="font-mono tabular-nums">{theo.gamma.toFixed(5)}</span> },
+      { label: "Daily Theta (θ)", value: <span className="font-mono tabular-nums text-rose-400">-{ccySym}{Math.abs(theo.thetaDaily).toFixed(2)}/day</span> },
+      { label: "1% Vega (ν)", value: <span className="font-mono tabular-nums">+{ccySym}{theo.vega1Pct.toFixed(2)}</span> },
+    ]
+
+    return (
+      <div className="mt-6 space-y-4">
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Observed Contract Identity</span>
+            <span className="text-[11px] font-mono text-emerald-400/90 flex items-center gap-1">
+              <Activity className="h-3 w-3 inline" /> Spot-Grounded
+            </span>
+          </div>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 md:grid-cols-6">
+            {observedItems.map((s, i) => (
+              <div key={s.label} className={`bento-card px-4 py-3.5 ${spanMap[s.span ?? "sm"]}`}>
+                <div className="flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wider" style={{ color: "var(--text-tertiary)" }}>
+                  <IconFor label={s.label} />
+                  {s.label}
+                </div>
+                <div className="mt-1 font-mono text-xs sm:text-sm font-semibold tabular-nums leading-snug" title={typeof s.value === "string" ? s.value : undefined} style={{ color: "var(--text-primary)" }}>
+                  {s.value}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-semibold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
+              <Calculator className="h-3.5 w-3.5" /> Theoretical Valuation & Greeks (Black-Scholes Model)
+            </span>
+            <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+              <Info className="h-3 w-3 inline" /> r=6.5% · σ=15% ATM HV
+            </span>
+          </div>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 md:grid-cols-6">
+            {theoreticalItems.map((s, i) => (
+              <div key={s.label} className={`bento-card px-4 py-3.5 border border-amber-500/10 ${spanMap[s.span ?? "sm"]}`}>
+                <div className="flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wider" style={{ color: "var(--text-tertiary)" }}>
+                  <IconFor label={s.label} />
+                  {s.label}
+                </div>
+                <div className="mt-1 font-mono text-xs sm:text-sm font-semibold tabular-nums leading-snug" title={typeof s.value === "string" ? s.value : undefined} style={{ color: "var(--text-primary)" }}>
+                  {s.value}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  const items: { label: string; value: React.ReactNode; span?: "sm" | "md" | "lg" }[] = [
+    { label: "Currency", value: quote?.currency ? `${ccySym} ${quote.currency}`.trim() : null },
+    { label: "Market Status", value: STATE_LABEL[quote?.marketState ?? "CLOSED"] },
+    { label: "Exchange", value: quote?.exchange || null },
+    { label: "Previous Close", value: quote?.previousClose != null ? <AnimatedMoney value={quote.previousClose} ccySym={ccySym} /> : null },
+    { label: "Open", value: quote?.open != null ? <AnimatedMoney value={quote.open} ccySym={ccySym} /> : null },
+    { label: "Day High", value: quote?.dayHigh != null ? <AnimatedMoney value={quote.dayHigh} ccySym={ccySym} /> : null },
+    { label: "Day Low", value: quote?.dayLow != null ? <AnimatedMoney value={quote.dayLow} ccySym={ccySym} /> : null },
+    { label: "Volume", value: quote?.volume != null ? <AnimatedBigNum value={quote.volume} /> : null },
+    { label: "Market Cap", value: quote?.marketCap != null ? <AnimatedBigNum value={quote.marketCap} /> : null },
+    { label: "P/E (TTM)", value: quote?.trailingPE != null ? <span className="tabular-nums">{quote.trailingPE.toFixed(2)}</span> : null },
+    { label: "EPS (TTM)", value: quote?.eps != null ? <span className="tabular-nums">{quote.eps.toFixed(2)}</span> : null },
+    { label: "Dividend Yield", value: quote?.dividendYield != null ? <span className="tabular-nums">{quote.dividendYield.toFixed(2)}%</span> : null },
+    { label: "Beta", value: quote?.beta != null ? <span className="tabular-nums">{quote.beta.toFixed(2)}</span> : null },
+    { label: "52W High", value: quote?.fiftyTwoWeekHigh != null ? <AnimatedMoney value={quote.fiftyTwoWeekHigh} ccySym={ccySym} /> : null },
+    { label: "52W Low", value: quote?.fiftyTwoWeekLow != null ? <AnimatedMoney value={quote.fiftyTwoWeekLow} ccySym={ccySym} /> : null },
+    { label: "52W Range", value: quote?.fiftyTwoWeekLow != null && quote?.fiftyTwoWeekHigh != null ? `${quote.fiftyTwoWeekLow.toFixed(0)}–${quote.fiftyTwoWeekHigh.toFixed(0)}` : null, span: "md" as const },
+    { label: "Sector", value: !isIndex && quote?.sector ? quote.sector : null, span: "md" as const },
+    { label: "Industry", value: !isIndex && quote?.industry ? quote.industry : null, span: "md" as const },
+    { label: "CEO", value: !isIndex && !isCrypto && quote?.ceo ? quote.ceo : null, span: "md" as const },
+  ].filter((s) => s.value != null)
 
   return (
     <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4 md:grid-cols-6">
-      {stats.map((s, i) => (
+      {items.map((s, i) => (
         <motion.div
           key={s.label}
           initial={{ opacity: 0, y: 15 }}

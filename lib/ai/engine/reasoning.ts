@@ -20,6 +20,28 @@ export type TechnicalSummary = {
   bollingerLower: number | null
 }
 
+export type DerivativeContractReasoning = {
+  isDerivative: boolean
+  tradingsymbol: string
+  canonicalSymbol: string
+  underlyingSymbol: string
+  underlyingName: string
+  underlyingPrice: number
+  underlyingChangePercent: number | null
+  strike?: number
+  optionType?: "CE" | "PE"
+  expiry?: string
+  segment?: string
+  hasLiveData: boolean
+  lotSize?: number
+  openInterest?: number | null
+  iv?: number | null
+  delta?: number | null
+  gamma?: number | null
+  theta?: number | null
+  vega?: number | null
+}
+
 export type ReasoningObject = {
   instrument: {
     symbol: string
@@ -28,6 +50,7 @@ export type ReasoningObject = {
     industry: string | null
     assetType: string
   }
+  derivative?: DerivativeContractReasoning | null
   market: {
     price: number
     changePercent: number
@@ -84,6 +107,30 @@ export function buildReasoningObject(symbol: string, quote: Quote, indicators: I
     ? ((indicators.bollinger.upper - indicators.bollinger.lower) / indicators.bollinger.middle) * 100
     : null
 
+  const derivative: DerivativeContractReasoning | null = quote.derivativeInfo?.isDerivative
+    ? {
+        isDerivative: true,
+        tradingsymbol: quote.derivativeInfo.tradingsymbol || quote.symbol,
+        canonicalSymbol: quote.symbol,
+        underlyingSymbol: quote.derivativeInfo.underlyingSymbol,
+        underlyingName: quote.derivativeInfo.underlyingName,
+        underlyingPrice: quote.derivativeInfo.underlyingPrice,
+        underlyingChangePercent: quote.derivativeInfo.underlyingChangePercent ?? null,
+        strike: quote.derivativeInfo.strike,
+        optionType: quote.derivativeInfo.optionType,
+        expiry: quote.derivativeInfo.expiry,
+        segment: quote.derivativeInfo.segment,
+        hasLiveData: quote.derivativeInfo.hasLiveData,
+        lotSize: quote.derivativeInfo.lotSize,
+        openInterest: quote.derivativeInfo.openInterest,
+        iv: quote.derivativeInfo.iv,
+        delta: quote.derivativeInfo.delta,
+        gamma: quote.derivativeInfo.gamma,
+        theta: quote.derivativeInfo.theta,
+        vega: quote.derivativeInfo.vega,
+      }
+    : null
+
   return {
     instrument: {
       symbol: quote.symbol,
@@ -92,6 +139,7 @@ export function buildReasoningObject(symbol: string, quote: Quote, indicators: I
       industry: quote.industry ?? null,
       assetType: quote.assetType ?? "EQUITY",
     },
+    derivative,
     market: {
       price,
       changePercent: quote.changePercent,
@@ -152,7 +200,29 @@ export function reasoningToPrompt(ro: ReasoningObject, horizon?: string): string
   const f = ro.fundamentals
   const v = ro.volumeAnalysis
   const vol = ro.volatility
-  const lines: string[] = [
+  const lines: string[] = []
+
+  if (ro.derivative) {
+    const d = ro.derivative
+    lines.push(
+      `DERIVATIVE CONTRACT IDENTITY (EXACT SELECTED CONTRACT UNDER ANALYSIS):`,
+      `Canonical Symbol: ${d.canonicalSymbol}`,
+      `Trading Symbol: ${d.tradingsymbol}`,
+      `Underlying Asset: ${d.underlyingName} (${d.underlyingSymbol})`,
+      `Live Underlying Spot Price: ${d.underlyingPrice} (${d.underlyingChangePercent != null ? (d.underlyingChangePercent >= 0 ? "+" : "") + d.underlyingChangePercent.toFixed(2) + "%" : "n/a"})`,
+      `Selected Strike Price: ${d.strike}`,
+      `Option Type: ${d.optionType} (${d.optionType === "CE" ? "Call" : "Put"})`,
+      `Contract Expiry: ${d.expiry}`,
+      `Segment / Exchange: ${d.segment}`,
+      `Data Mode: ${d.hasLiveData ? "LIVE FEED ACTIVE" : "FREE MARKET-DATA MODE (SPOT GROUNDED + THEORETICAL BLACK-SCHOLES MODEL)"}`,
+      `Exchange LTP: ${d.hasLiveData ? m.price : "UNAVAILABLE on free tier (—)"}`,
+      `Exchange Open Interest: ${d.openInterest != null ? d.openInterest : "UNAVAILABLE on free tier (—)"}`,
+      `Exchange IV: ${d.iv != null ? d.iv + "%" : "UNAVAILABLE on free tier (—)"}`,
+      ``,
+    )
+  }
+
+  lines.push(
     `INSTRUMENT: ${ro.instrument.name} (${ro.instrument.symbol})`,
     `Sector: ${ro.instrument.sector ?? "n/a"} | Industry: ${ro.instrument.industry ?? "n/a"} | Type: ${ro.instrument.assetType}`,
     `Market state: ${m.marketState} | Currency: ${m.currency}`,
@@ -175,7 +245,7 @@ export function reasoningToPrompt(ro: ReasoningObject, horizon?: string): string
     `VWAP: ${t.vwap ?? "n/a"} | ATR: ${t.atr != null ? t.atr.toFixed(2) : "n/a"} (${vol.atrPercent != null ? vol.atrPercent.toFixed(1) + "%" : "n/a"})`,
     `Bollinger: ${t.bollingerLower ?? "n/a"} – ${t.bollingerUpper ?? "n/a"} (width: ${vol.bollingerWidth != null ? vol.bollingerWidth.toFixed(1) + "%" : "n/a"})`,
     `Support (60d): ${t.support60d ?? "n/a"} | Resistance (60d): ${t.resistance60d ?? "n/a"}`,
-  ]
+  )
   if (ro.fibonacci) {
     lines.push(`Fibonacci: ${Object.entries(ro.fibonacci).map(([k, v]) => `${k}: ${v.toFixed(2)}`).join(", ")}`)
   }

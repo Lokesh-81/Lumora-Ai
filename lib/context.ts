@@ -9,6 +9,7 @@ import { buildReasoningObject, type ReasoningObject } from "@/lib/ai/engine/reas
 import { computeRiskScores, type RiskScores } from "@/lib/ai/engine/risk"
 import { computeConfidence, type ConfidenceResult } from "@/lib/ai/engine/confidence"
 import { validateReasoningObject, type ValidationResult } from "@/lib/ai/engine/validation"
+import { calculateTheoreticalOption } from "@/lib/derivatives/black-scholes"
 
 export function fmt(n: number | null | undefined, d = 2) {
   return n == null ? "n/a" : n.toLocaleString(undefined, { minimumFractionDigits: d, maximumFractionDigits: d })
@@ -50,12 +51,6 @@ export async function buildInstrumentContext(
 
   if (!quote) return null
 
-  // CRITICAL GUARD: If this is an option contract and real derivative quotes are unavailable,
-  // do NOT allow AI analysis or spot substitution.
-  if (quote.derivativeInfo?.isDerivative && !quote.derivativeInfo.hasLiveData) {
-    return null
-  }
-
   const ind = computeIndicators(candles)
   const name = displayName(quote.symbol, quote.name)
 
@@ -74,20 +69,67 @@ export async function buildInstrumentContext(
 
   const horizonLine = opts?.horizon ? `\nTrader horizon requested: ${opts.horizon}` : ""
 
-  const derivSection = quote.derivativeInfo?.isDerivative
-    ? `
-DERIVATIVE CONTRACT DETAILS (EXACT OPTION INSTRUMENT)
-Trading Symbol: ${quote.derivativeInfo.tradingsymbol || quote.symbol}
-Contract Type: ${quote.derivativeInfo.optionType} | Strike: ${quote.derivativeInfo.strike} | Expiry: ${quote.derivativeInfo.expiry}
-Segment: ${quote.derivativeInfo.segment} | Lot Size: ${quote.derivativeInfo.lotSize ?? "n/a"}
+  let derivSection = ""
+  if (quote.derivativeInfo?.isDerivative) {
+    const d = quote.derivativeInfo
+    if (d.hasLiveData) {
+      derivSection = `
+DERIVATIVE CONTRACT DETAILS (EXACT OPTION INSTRUMENT - LIVE FEED ACTIVE)
+Trading Symbol: ${d.tradingsymbol || quote.symbol}
+Contract Type: ${d.optionType} | Strike: ${d.strike} | Expiry: ${d.expiry}
+Segment: ${d.segment} | Lot Size: ${d.lotSize ?? "n/a"}
 Option Premium (LTP): ${fmt(quote.price)} (${quote.changePercent >= 0 ? "+" : ""}${quote.changePercent.toFixed(2)}% today)
-Underlying Spot Price: ${quote.derivativeInfo.underlyingName} (${quote.derivativeInfo.underlyingSymbol}) @ ${fmt(quote.derivativeInfo.underlyingPrice)}
-Open Interest: ${bigNum(quote.derivativeInfo.openInterest)}
-Implied Volatility (IV): ${quote.derivativeInfo.iv != null ? quote.derivativeInfo.iv.toFixed(2) + "%" : "n/a"}
-Greeks: Delta ${fmt(quote.derivativeInfo.delta)}, Gamma ${fmt(quote.derivativeInfo.gamma, 4)}, Theta ${fmt(quote.derivativeInfo.theta)}, Vega ${fmt(quote.derivativeInfo.vega)}
-Bid / Ask: ${fmt(quote.derivativeInfo.bid)} / ${fmt(quote.derivativeInfo.ask)}
+Underlying Spot Price: ${d.underlyingName} (${d.underlyingSymbol}) @ ${fmt(d.underlyingPrice)}
+Open Interest: ${bigNum(d.openInterest)}
+Implied Volatility (IV): ${d.iv != null ? d.iv.toFixed(2) + "%" : "n/a"}
+Greeks: Delta ${fmt(d.delta)}, Gamma ${fmt(d.gamma, 4)}, Theta ${fmt(d.theta)}, Vega ${fmt(d.vega)}
+Bid / Ask: ${fmt(d.bid)} / ${fmt(d.ask)}
 `
-    : ""
+    } else {
+      // Calculate Black-Scholes theoretical model values
+      const expDate = d.expiry ? new Date(d.expiry) : new Date()
+      const now = new Date()
+      const diffMs = expDate.getTime() - now.getTime()
+      const days = Math.max(0.5, diffMs / (1000 * 60 * 60 * 24))
+      const timeToExpiryYears = days / 365
+      const strikePrice = d.strike ?? 0
+      const theo = calculateTheoreticalOption(
+        d.underlyingPrice || 0,
+        strikePrice,
+        timeToExpiryYears,
+        0.15,
+        0.065,
+        d.optionType ?? "CE"
+      )
+
+      derivSection = `
+DERIVATIVE CONTRACT DETAILS (FREE MARKET-DATA MODE - SPOT GROUNDED + THEORETICAL MODEL)
+Trading Symbol: ${d.tradingsymbol || quote.symbol}
+Contract Type: ${d.optionType} | Strike: ${d.strike} | Expiry: ${d.expiry} (${days.toFixed(1)} days to expiration)
+Segment: ${d.segment} | Underlying Name: ${d.underlyingName} (${d.underlyingSymbol})
+Live Underlying Spot Price: ${fmt(d.underlyingPrice)} (${d.underlyingChangePercent != null ? (d.underlyingChangePercent >= 0 ? "+" : "") + d.underlyingChangePercent.toFixed(2) + "%" : "n/a"})
+Live Exchange Option Traded LTP: UNAVAILABLE on free tier (—)
+Live Exchange Open Interest (OI): UNAVAILABLE on free tier (—)
+Live Exchange Implied Volatility (IV): UNAVAILABLE on free tier (—)
+
+THEORETICAL / MODELLED METRICS (Black-Scholes Model r=6.5%, σ=15% ATM HV):
+Theoretical Fair Value: ₹${theo.theoreticalPrice} [MODELLED]
+Modelled Moneyness: ${theo.moneyness}
+Modelled Intrinsic Value: ₹${theo.intrinsicValue}
+Modelled Time Value: ₹${theo.timeValue}
+Modelled Delta: ${theo.delta}
+Modelled Gamma: ${theo.gamma}
+Modelled Daily Theta Decay: ₹${theo.thetaDaily}
+Modelled 1% Vega: ₹${theo.vega1Pct}
+Modelled Break-even at Expiration: ₹${theo.breakEven}
+
+IMPORTANT AI INSTRUCTION FOR THIS OPTION:
+1. You MUST explicitly state in your analysis which fields are missing (Real Exchange LTP, Real OI, Real IV) due to the free data tier.
+2. Ground your market bias in the live underlying spot price and technical structure (${d.underlyingName} @ ₹${fmt(d.underlyingPrice)}).
+3. Clearly label any option pricing and Greeks analysis as THEORETICAL / MODELLED. NEVER claim they are live exchange-traded prices.
+`
+    }
+  }
 
   const context = `
 INSTRUMENT

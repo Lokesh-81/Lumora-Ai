@@ -74,25 +74,6 @@ function AnimatedPrice({ value, ccySym }: { value: number | undefined; ccySym: s
   return <>{ccySym}{formatted}</>
 }
 
-function useScrollPreserve() {
-  const scrollRef = useRef(0)
-  const lockedRef = useRef(true)
-  useEffect(() => {
-    scrollRef.current = window.scrollY
-    const id = setTimeout(() => {
-      lockedRef.current = false
-    }, 600)
-    const observer = new ResizeObserver(() => {
-      if (lockedRef.current) window.scrollTo(0, scrollRef.current)
-    })
-    observer.observe(document.body)
-    return () => {
-      clearTimeout(id)
-      observer.disconnect()
-    }
-  }, [])
-}
-
 const PriceChart = dynamic(() => import("@/components/price-chart").then((m) => m.PriceChart), {
   ssr: false,
   loading: () => <ChartSkeleton />,
@@ -139,8 +120,14 @@ const BentoCard = memo(function BentoCard({ children, className = "" }: { childr
   )
 })
 
-const TickerTape = memo(function TickerTape({ quotes }: { quotes: Quote[] }) {
+const TickerTape = memo(function TickerTape() {
   const tickerSymbols = ["^GSPC", "^IXIC", "^DJI", "BTC-USD", "ETH-USD", "GC=F", "CL=F", "INR=X"]
+  const { data: tickerData } = useSWR<{ quotes: Quote[] }>(
+    "/api/quote?symbols=^GSPC,^IXIC,^DJI,BTC-USD,ETH-USD,GC=F,CL=F,INR=X",
+    fetcher,
+    { refreshInterval: 120000, keepPreviousData: true, revalidateOnFocus: false },
+  )
+  const quotes = useMemo(() => tickerData?.quotes ?? [], [tickerData])
 
   return (
     <div className="relative overflow-hidden rounded-[32px]">
@@ -195,8 +182,6 @@ export function MarketExplorer({ initialSymbol }: { initialSymbol: string }) {
   const [optionParams, setOptionParams] = useState<{ strike?: number; expiry?: string }>({})
   const analysisTrigger = useRef<(() => void) | null>(null)
 
-  useScrollPreserve()
-
   useEffect(() => {
     let active = true
     fetch("/api/region")
@@ -217,11 +202,6 @@ export function MarketExplorer({ initialSymbol }: { initialSymbol: string }) {
     `/api/chart?symbol=${encodeURIComponent(symbol)}&range=${range}`,
     fetcher,
     { keepPreviousData: true, revalidateOnFocus: false },
-  )
-  const { data: tickerData } = useSWR<{ quotes: Quote[] }>(
-    "/api/quote?symbols=^GSPC,^IXIC,^DJI,BTC-USD,ETH-USD,GC=F,CL=F,INR=X",
-    fetcher,
-    { refreshInterval: 120000, keepPreviousData: true, revalidateOnFocus: false },
   )
 
   const rawQuote: Quote | null = quoteData?.quotes?.[0] ?? null
@@ -245,7 +225,6 @@ export function MarketExplorer({ initialSymbol }: { initialSymbol: string }) {
   }, [symbol, quote?.exchange, quote?.currency])
 
   const indicators = useMemo(() => computeIndicators(candles), [candles])
-  const tickerQuotes = useMemo(() => tickerData?.quotes ?? [], [tickerData])
   const isDerivative = useMemo(() => !!quote?.derivativeInfo?.isDerivative, [quote?.derivativeInfo?.isDerivative])
   const hasDerivLive = useMemo(() => !!quote?.derivativeInfo?.hasLiveData, [quote?.derivativeInfo?.hasLiveData])
 
@@ -260,7 +239,7 @@ export function MarketExplorer({ initialSymbol }: { initialSymbol: string }) {
   return (
     <div className="mx-auto w-full max-w-6xl px-4 pb-32">
       <div className="mb-6">
-        <TickerTape quotes={tickerQuotes} />
+        <TickerTape />
       </div>
 
       <div className="flex flex-col items-start gap-4 pb-6 pt-4">
@@ -354,16 +333,15 @@ export function MarketExplorer({ initialSymbol }: { initialSymbol: string }) {
               document.getElementById("ai-analysis")?.scrollIntoView({ behavior: "smooth", block: "start" })
             })
           }}
-          disabled={isDerivative && !hasDerivLive}
-          className="flex items-center gap-2 rounded-full px-6 py-2.5 text-sm font-semibold transition-all shadow-md shadow-blue-500/20 hover:shadow-lg hover:shadow-blue-500/30 active:scale-98 bg-[var(--gold)] text-white border border-blue-400/30 hover:brightness-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
+          className="flex items-center gap-2 rounded-full px-6 py-2.5 text-sm font-semibold transition-all shadow-md shadow-blue-500/20 hover:shadow-lg hover:shadow-blue-500/30 active:scale-98 bg-[var(--gold)] text-white border border-blue-400/30 hover:brightness-105"
         >
           <LineChart className="h-4 w-4" />
-          {isDerivative && !hasDerivLive ? "Live Option Data Unavailable" : isDerivative ? "Analyze Option Contract" : "Analyze Stock"}
+          {isDerivative ? (hasDerivLive ? "Analyze Option Contract (Live Feed)" : "Analyze Option (Spot & Theoretical Model)") : "Analyze Instrument"}
         </button>
         <span className="text-xs" style={{ color: "var(--text-tertiary)" }}>
           {isDerivative && !hasDerivLive
-            ? "AI option analysis is disabled because live derivative market data is not available."
-            : "AI analysis runs below, grounded in live market data."}
+            ? "Option analysis will be grounded in live underlying spot data and Black-Scholes theoretical model."
+            : "AI analysis runs below, strictly grounded in live market data."}
         </span>
       </div>
 
@@ -592,12 +570,6 @@ const StatsGrid = memo(function StatsGrid({ quote, ccySym }: { quote: Quote | nu
   const isCrypto = quote?.assetType === "CRYPTOCURRENCY"
   const isDerivative = !!quote?.derivativeInfo?.isDerivative
   const deriv = quote?.derivativeInfo
-
-  const [now, setNow] = useState(Date.now())
-  useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), POLL_INTERVAL)
-    return () => clearInterval(id)
-  }, [])
 
   const stats = useMemo(() => {
     if (isDerivative && deriv) {

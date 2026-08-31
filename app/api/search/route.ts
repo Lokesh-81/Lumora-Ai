@@ -38,6 +38,7 @@ export async function GET(req: Request) {
 
   // 1. Primary parsed result (Full Option Contract, Index, or Stock)
   const primaryResults: Record<string, unknown>[] = []
+  const underlyingResults: Record<string, unknown>[] = []
 
   if (parsed.type === "option" && !parsed.isPartial && parsed.strike && parsed.optionType) {
     // Exact Option Contract requested -> ALWAYS TOP RESULT
@@ -51,9 +52,9 @@ export async function GET(req: Request) {
       expiry: parsed.expiry,
       underlying: parsed.underlying,
     })
-    // Also include the underlying index/stock for convenience
+    // Also include the underlying index/stock below option contracts for convenience
     if (parsed.underlyingSymbol) {
-      primaryResults.push({
+      underlyingResults.push({
         symbol: parsed.underlyingSymbol,
         name: parsed.underlying ?? parsed.underlyingSymbol,
         exchange: parsed.exchange ?? "NSE",
@@ -70,7 +71,7 @@ export async function GET(req: Request) {
     })
   } else if (parsed.underlyingSymbol) {
     // Partial derivative query (e.g. "NIFTY 24150") -> include underlying
-    primaryResults.push({
+    underlyingResults.push({
       symbol: parsed.underlyingSymbol,
       name: parsed.underlying ?? parsed.name,
       exchange: parsed.exchange ?? "NSE",
@@ -104,7 +105,13 @@ export async function GET(req: Request) {
 
   const onlineResults = isPartial || parsed.type === "option" ? [] : await searchSymbols(trimmed)
 
-  const combined = [...primaryResults, ...optionSuggestions, ...catalogResults, ...onlineResults]
+  const combined = [
+    ...primaryResults,
+    ...optionSuggestions,
+    ...underlyingResults,
+    ...catalogResults,
+    ...onlineResults,
+  ]
 
   // Deduplicate by symbol
   const seen = new Set<string>()

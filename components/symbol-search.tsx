@@ -21,12 +21,12 @@ const RECENT_STORAGE_KEY = "lumora_recent_searches"
 const TRENDING_QUICK: SearchResult[] = [
   { symbol: "^NSEI", name: "NIFTY 50", exchange: "NSE", type: "INDEX" },
   { symbol: "^NSEBANK", name: "BANK NIFTY", exchange: "NSE", type: "INDEX" },
-  { symbol: "LTF.NS", name: "L&T Finance", exchange: "NSE", type: "EQUITY" },
   { symbol: "RELIANCE.NS", name: "Reliance Industries", exchange: "NSE", type: "EQUITY" },
-  { symbol: "^NSEI", name: "NIFTY 25000 CE", exchange: "NSE", type: "OPTION", strike: 25000, optionType: "CE", expiry: "JUL", underlying: "NIFTY" },
+  { symbol: "TCS.NS", name: "Tata Consultancy Services", exchange: "NSE", type: "EQUITY" },
+  { symbol: "NFO:NIFTY-SEP-24500-CE", name: "NIFTY 24500 CE", exchange: "NSE", type: "OPTION", strike: 24500, optionType: "CE", expiry: "SEP", underlying: "NIFTY 50" },
+  { symbol: "^BSESN", name: "BSE SENSEX", exchange: "BSE", type: "INDEX" },
   { symbol: "GC=F", name: "Gold Futures", exchange: "COMEX", type: "COMMODITY" },
   { symbol: "BTC-USD", name: "Bitcoin", exchange: "CCC", type: "CRYPTO" },
-  { symbol: "INR=X", name: "USD / INR", exchange: "FX", type: "FOREX" },
 ]
 
 export function SymbolSearch({ onSelect }: { onSelect: (result: SearchResult) => void }) {
@@ -134,28 +134,26 @@ export function SymbolSearch({ onSelect }: { onSelect: (result: SearchResult) =>
   function typeBadge(t: string) {
     switch (t.toUpperCase()) {
       case "OPTION":
-        return <span className="rounded-md bg-purple-500/10 dark:bg-purple-500/20 px-2 py-0.5 text-[10px] font-semibold text-purple-700 dark:text-purple-300 border border-purple-500/30">OPTION</span>
+        return <span className="rounded-md bg-purple-500/20 text-purple-700 dark:text-purple-300 px-2 py-0.5 text-[10px] font-bold border border-purple-500/30 tracking-wider">OPTION</span>
       case "FUTURE":
       case "COMMODITY":
-        return <span className="rounded-md bg-amber-500/10 dark:bg-amber-500/20 px-2 py-0.5 text-[10px] font-semibold text-amber-700 dark:text-amber-300 border border-amber-500/30">FUT/COMM</span>
+        return <span className="rounded-md bg-amber-500/20 text-amber-700 dark:text-amber-300 px-2 py-0.5 text-[10px] font-bold border border-amber-500/30 tracking-wider">FUT/COMM</span>
       case "INDEX":
-        return <span className="rounded-md bg-blue-500/10 dark:bg-blue-500/20 px-2 py-0.5 text-[10px] font-semibold text-blue-700 dark:text-blue-300 border border-blue-500/30">INDEX</span>
+        return <span className="rounded-md bg-blue-500/20 text-blue-700 dark:text-blue-300 px-2 py-0.5 text-[10px] font-bold border border-blue-500/30 tracking-wider">INDEX</span>
       case "EQUITY":
-        return <span className="rounded-md bg-emerald-500/10 dark:bg-emerald-500/20 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:text-emerald-300 border border-emerald-500/30">EQUITY</span>
+        return <span className="rounded-md bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 text-[10px] font-bold border border-emerald-500/30 tracking-wider">EQUITY</span>
       case "CRYPTO":
-        return <span className="rounded-md bg-cyan-500/10 dark:bg-cyan-500/20 px-2 py-0.5 text-[10px] font-semibold text-cyan-700 dark:text-cyan-300 border border-cyan-500/30">CRYPTO</span>
+        return <span className="rounded-md bg-cyan-500/20 text-cyan-700 dark:text-cyan-300 px-2 py-0.5 text-[10px] font-bold border border-cyan-500/30 tracking-wider">CRYPTO</span>
       case "FOREX":
       case "CURRENCY":
-        return <span className="rounded-md bg-pink-500/10 dark:bg-pink-500/20 px-2 py-0.5 text-[10px] font-semibold text-pink-700 dark:text-pink-300 border border-pink-500/30">FOREX</span>
+        return <span className="rounded-md bg-pink-500/20 text-pink-700 dark:text-pink-300 px-2 py-0.5 text-[10px] font-bold border border-pink-500/30 tracking-wider">FOREX</span>
       default:
-        return <span className="rounded-md bg-slate-500/10 dark:bg-slate-500/20 px-2 py-0.5 text-[10px] font-semibold text-slate-700 dark:text-slate-300 border border-slate-500/30">{t}</span>
+        return <span className="rounded-md bg-slate-500/20 text-slate-700 dark:text-slate-300 px-2 py-0.5 text-[10px] font-bold border border-slate-500/30 tracking-wider">{t}</span>
     }
   }
 
-  const showRecentOrTrending = open && !q.trim()
-
   return (
-    <div ref={boxRef} className="relative w-full max-w-2xl">
+    <div ref={boxRef} className="relative w-full max-w-2xl z-40">
       <motion.div
         className={`flex items-center gap-3 rounded-[24px] px-5 py-3.5 glass-strong transition-all duration-300 ${
           focused
@@ -201,7 +199,7 @@ export function SymbolSearch({ onSelect }: { onSelect: (result: SearchResult) =>
               }
             }
           }}
-          placeholder="Search stocks, indices, options (e.g. SENSEX AUG 77400 PE, NIFTY 25000 CE)…"
+          placeholder="Search stocks, indices, options (e.g. NIFTY 50 24150 PE, SENSEX 77400 PE)…"
           className="w-full bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground/70 font-medium"
           aria-label="Search symbols"
         />
@@ -229,46 +227,48 @@ export function SymbolSearch({ onSelect }: { onSelect: (result: SearchResult) =>
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -6, scale: 0.98 }}
             transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
-            className="absolute z-50 mt-2 w-full overflow-hidden rounded-[24px] border border-[var(--line-strong)] bg-white/95 dark:bg-[#101726]/95 backdrop-blur-2xl shadow-2xl shadow-slate-900/10 dark:shadow-black/60 ring-1 ring-black/5 dark:ring-white/10"
+            className="absolute z-[100] mt-2 w-full overflow-hidden rounded-[24px] border border-neutral-300 dark:border-neutral-700/80 bg-white dark:bg-[#0c121e] backdrop-blur-2xl shadow-2xl shadow-black/20 dark:shadow-black/70 ring-1 ring-black/10 dark:ring-white/10"
           >
             <div ref={listRef} className="max-h-[380px] overflow-y-auto p-2 scrollbar-thin">
               {q.trim() ? (
                 results.length > 0 ? (
                   results.map((r, i) => (
                     <motion.button
-                      key={`${r.symbol}-${r.type}-${r.strike ?? ""}-${r.optionType ?? ""}-${i}`}
+                      key={`${r.symbol}-${r.type}-${r.strike ?? ""}-${r.optionType ?? ""}-${r.expiry ?? ""}-${i}`}
                       data-index={i}
                       onClick={() => choose(r)}
                       onMouseEnter={() => setActive(i)}
                       className={`flex w-full items-center justify-between gap-4 rounded-xl px-3.5 py-2.5 text-left transition-all ${
                         i === active
-                          ? "bg-[var(--gold)]/10 dark:bg-white/10 text-foreground ring-1 ring-[var(--gold)]/40 shadow-sm"
-                          : "hover:bg-[var(--surface-alt)] text-foreground/85"
+                          ? "bg-[var(--gold)]/15 dark:bg-neutral-800 text-foreground ring-1 ring-[var(--gold)]/50 shadow-sm"
+                          : "hover:bg-neutral-100 dark:hover:bg-neutral-800/60 text-foreground"
                       }`}
                     >
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
                           {typeBadge(r.type)}
-                          <span className="font-mono text-sm font-semibold tracking-tight text-foreground">
-                            {r.type === "OPTION" ? r.name : r.symbol}
+                          <span className="font-mono text-sm font-bold tracking-tight text-neutral-950 dark:text-neutral-50">
+                            {r.type === "OPTION"
+                              ? `${r.underlying ?? r.symbol} · ${r.expiry ? `${r.expiry} ` : ""}${r.strike ?? ""} ${r.optionType ?? ""}`.trim()
+                              : r.symbol}
                           </span>
                         </div>
-                        <div className="truncate text-xs text-muted-foreground mt-0.5">
+                        <div className="truncate text-xs font-medium text-neutral-600 dark:text-neutral-300 mt-0.5">
                           {r.type === "OPTION"
-                            ? `${r.underlying ?? r.symbol} · ${r.expiry ?? ""} ${r.strike ?? ""} ${r.optionType ?? ""}`
+                            ? `${r.exchange ?? "NSE"} · ${r.name || `${r.underlying} ${r.strike} ${r.optionType}`}`
                             : r.name}
                         </div>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
-                        <span className="rounded-full border border-[var(--line)] bg-[var(--surface-alt)] px-2.5 py-0.5 text-[10px] font-mono text-muted-foreground">
+                        <span className="rounded-full border border-neutral-300 dark:border-neutral-700 bg-neutral-100 dark:bg-neutral-800/80 px-2.5 py-0.5 text-[10px] font-mono font-bold text-neutral-800 dark:text-neutral-200">
                           {r.exchange || r.type}
                         </span>
-                        <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/60" />
+                        <ChevronRight className="h-3.5 w-3.5 text-neutral-400 dark:text-neutral-500" />
                       </div>
                     </motion.button>
                   ))
                 ) : (
-                  <div className="p-6 text-center text-sm text-muted-foreground">
+                  <div className="p-6 text-center text-sm font-medium text-neutral-600 dark:text-neutral-400">
                     No matching instruments found for &ldquo;{q}&rdquo;
                   </div>
                 )
@@ -276,9 +276,9 @@ export function SymbolSearch({ onSelect }: { onSelect: (result: SearchResult) =>
                 <div className="p-2 space-y-3">
                   {recent.length > 0 && (
                     <div>
-                      <div className="flex items-center justify-between px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      <div className="flex items-center justify-between px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-neutral-700 dark:text-neutral-300">
                         <span className="flex items-center gap-1.5"><Clock className="h-3 w-3 text-[var(--gold)]" /> Recent Searches</span>
-                        <button onClick={clearRecent} className="text-[10px] text-muted-foreground hover:text-foreground">Clear</button>
+                        <button onClick={clearRecent} className="text-[10px] font-semibold text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100">Clear</button>
                       </div>
                       <div className="grid grid-cols-2 gap-1.5 mt-1">
                         {recent.map((r, i) => (
@@ -288,11 +288,13 @@ export function SymbolSearch({ onSelect }: { onSelect: (result: SearchResult) =>
                             onClick={() => choose(r)}
                             onMouseEnter={() => setActive(i)}
                             className={`flex items-center justify-between rounded-xl px-3 py-2 text-left text-xs transition-all ${
-                              i === active ? "bg-[var(--gold)]/10 dark:bg-white/10 text-foreground ring-1 ring-[var(--gold)]/30" : "bg-[var(--surface-alt)]/60 hover:bg-[var(--surface-alt)] text-foreground/80"
+                              i === active
+                                ? "bg-[var(--gold)]/15 dark:bg-neutral-800 text-neutral-950 dark:text-neutral-50 ring-1 ring-[var(--gold)]/40"
+                                : "bg-neutral-100 dark:bg-neutral-800/50 hover:bg-neutral-200 dark:hover:bg-neutral-800 text-neutral-800 dark:text-neutral-200"
                             }`}
                           >
-                            <span className="font-mono font-medium truncate text-foreground">{r.symbol}</span>
-                            <span className="text-[10px] text-muted-foreground truncate">{r.name}</span>
+                            <span className="font-mono font-bold truncate text-neutral-900 dark:text-neutral-100">{r.symbol}</span>
+                            <span className="text-[10px] font-medium text-neutral-600 dark:text-neutral-400 truncate ml-1.5">{r.name}</span>
                           </button>
                         ))}
                       </div>
@@ -300,7 +302,7 @@ export function SymbolSearch({ onSelect }: { onSelect: (result: SearchResult) =>
                   )}
 
                   <div>
-                    <div className="px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                    <div className="px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-neutral-700 dark:text-neutral-300 flex items-center gap-1.5">
                       <TrendingUp className="h-3 w-3 text-[var(--gold)]" /> Trending Universe
                     </div>
                     <div className="grid grid-cols-2 gap-1.5 mt-1">
@@ -313,11 +315,13 @@ export function SymbolSearch({ onSelect }: { onSelect: (result: SearchResult) =>
                             onClick={() => choose(r)}
                             onMouseEnter={() => setActive(idx)}
                             className={`flex items-center justify-between rounded-xl px-3 py-2 text-left text-xs transition-all ${
-                              idx === active ? "bg-[var(--gold)]/10 dark:bg-white/10 text-foreground ring-1 ring-[var(--gold)]/30" : "bg-[var(--surface-alt)]/60 hover:bg-[var(--surface-alt)] text-foreground/80"
+                              idx === active
+                                ? "bg-[var(--gold)]/15 dark:bg-neutral-800 text-neutral-950 dark:text-neutral-50 ring-1 ring-[var(--gold)]/40"
+                                : "bg-neutral-100 dark:bg-neutral-800/50 hover:bg-neutral-200 dark:hover:bg-neutral-800 text-neutral-800 dark:text-neutral-200"
                             }`}
                           >
-                            <span className="font-mono font-semibold text-foreground">{r.type === "OPTION" ? "NIFTY 25000 CE" : r.name}</span>
-                            <span className="text-[10px] text-muted-foreground">{r.type}</span>
+                            <span className="font-mono font-bold text-neutral-900 dark:text-neutral-100">{r.name}</span>
+                            <span className="text-[10px] font-semibold text-neutral-500 dark:text-neutral-400">{r.type}</span>
                           </button>
                         )
                       })}
@@ -332,3 +336,4 @@ export function SymbolSearch({ onSelect }: { onSelect: (result: SearchResult) =>
     </div>
   )
 }
+

@@ -391,7 +391,7 @@ export default async function OptionContractPage({ params }: PageProps) {
               <span>Data Architecture &amp; Execution Transparency</span>
             </div>
             <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
-              <strong>Spot vs. Derivative Pricing:</strong> Lumora AI provides live, tick-calibrated underlying spot data for {uInfo.name} directly from exchange feeds. For Indian derivatives (NSE NFO / BSE BFO), the strike ladder and canonical contract structure are dynamically resolved. Real-time tick streaming of derivative bid/ask premiums, IV, and open interest requires direct broker connection (e.g. Zerodha, Angel One, Upstox, FYERS).
+              <strong>Spot vs. Derivative Pricing:</strong> Lumora AI provides live, tick-calibrated underlying spot data for {uInfo.name} directly from exchange feeds. For Indian derivatives (NSE NFO / BSE BFO), the strike ladder and canonical contract structure are dynamically resolved. Real-time tick streaming of derivative bid/ask premiums, live OI, and volume require institutional market feeds. Lumora operates in Free Market-Data Mode with spot-anchored Black-Scholes theoretical modelling for options analysis.
             </p>
           </section>
 

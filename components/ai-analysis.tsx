@@ -203,14 +203,9 @@ export function AiAnalysis({
   const [retryCount, setRetryCount] = useState(0)
   const abortRef = useRef<AbortController | null>(null)
 
-  const isDerivBlocked = !!(isDerivative && !hasDerivLive)
+  const isDerivTheoretical = !!(isDerivative && !hasDerivLive)
 
   const doStream = useCallback(async (sym: string, hz: string, attempt = 0) => {
-    if (isDerivative && !hasDerivLive) {
-      setError("Live option market data (LTP, Greeks, OI) is unavailable for this contract. AI analysis requires actual live derivative market data.")
-      return
-    }
-
     setLoading(true)
     setError(null)
     setData(null)
@@ -398,15 +393,15 @@ export function AiAnalysis({
             ))}
           </div>
           <motion.button
-            whileHover={{ scale: loading || isDerivBlocked ? 1 : 1.03 }}
-            whileTap={{ scale: loading || isDerivBlocked ? 1 : 0.97 }}
+            whileHover={{ scale: loading ? 1 : 1.03 }}
+            whileTap={{ scale: loading ? 1 : 0.97 }}
             onClick={run}
-            disabled={loading || isDerivBlocked}
+            disabled={loading}
             className="group relative flex items-center gap-1.5 overflow-hidden rounded-full bg-[var(--gold)] px-5 py-2 text-xs font-semibold text-white shadow-md shadow-blue-500/25 border border-blue-400/30 transition-all duration-300 hover:brightness-105 hover:shadow-lg hover:shadow-blue-500/30 disabled:cursor-not-allowed disabled:opacity-60"
           >
             <span className="absolute inset-0 -translate-x-full bg-white/20 transition-transform duration-700 group-hover:translate-x-full" />
             {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <TrendingUp className="h-3.5 w-3.5" />}
-            {loading ? "Analyzing…" : isDerivBlocked ? "Live Option Data Unavailable" : "Analyze with AI"}
+            {loading ? "Analyzing…" : isDerivTheoretical ? "Analyze Option (Modelled)" : "Analyze with AI"}
           </motion.button>
           {loading && (
             <button
@@ -419,18 +414,18 @@ export function AiAnalysis({
         </div>
       </div>
 
-      {isDerivBlocked && (
+      {isDerivTheoretical && (
         <div className="relative mt-5 border-t pt-5" style={{ borderColor: "var(--line)" }}>
-          <div className="flex items-start gap-3 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-amber-500">
+          <div className="flex items-start gap-3 rounded-2xl border border-blue-500/30 bg-blue-500/10 p-4 text-blue-700 dark:text-blue-300">
             <div className="flex-1 text-xs sm:text-sm leading-relaxed">
-              <strong className="font-semibold block mb-1">Live Option Data Unavailable</strong>
-              AI analysis for derivative contracts requires actual live exchange market quotes (LTP, Greeks, Open Interest). AI analysis is disabled to prevent inaccurate conclusions based on underlying spot prices.
+              <strong className="font-semibold block mb-1">Free Market-Data Mode (Theoretical Model)</strong>
+              Derivative analysis is generated using real-time underlying spot prices, historical price action, and the Black-Scholes mathematical options pricing model. Live exchange ticks (LTP, real-time OI, live IV) are unavailable on free data tiers and will be clearly acknowledged in the breakdown.
             </div>
           </div>
         </div>
       )}
 
-      {error && !isDerivBlocked && (
+      {error && (
         <div className="relative mt-5 border-t pt-5" style={{ borderColor: "var(--line)" }}>
           <div className="glass flex items-start gap-3 rounded-[28px] border p-4" style={{ borderColor: "var(--gold-line)", background: "var(--gold-glow)" }}>
             <div className="flex-1 text-sm text-foreground/90">{error}</div>

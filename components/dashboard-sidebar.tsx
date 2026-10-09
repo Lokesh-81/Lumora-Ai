@@ -6,7 +6,7 @@ import Link from "next/link"
 import { motion, AnimatePresence } from "motion/react"
 import {
   Home, LayoutDashboard, LineChart, Briefcase, Eye, BarChart3,
-  MessageSquare, Bell, User, LogOut, ChevronLeft,
+  MessageSquare, Bell, User, LogOut, ChevronLeft, Sparkles,
 } from "lucide-react"
 import { authClient } from "@/lib/auth-client"
 import { useRouter } from "next/navigation"
@@ -33,6 +33,7 @@ const SECTIONS = [
     label: "Intelligence",
     items: [
       { href: "/chat", label: "AI Chat", icon: MessageSquare },
+      { href: "/agent", label: "Lumora Intelligence", icon: Sparkles },
       { href: "/activity", label: "Activity", icon: Bell },
       { href: "/profile", label: "Profile", icon: User },
     ],

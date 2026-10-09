@@ -82,6 +82,8 @@ export async function POST(req: Request) {
       history = previous
         .filter((item) => (item.role === "user" || item.role === "assistant") && typeof item.content === "string")
         .map((item) => ({ role: item.role as "user" | "assistant", content: item.content }))
+      // The current user turn was inserted above; do not send it twice to the model.
+      if (history.at(-1)?.role === "user" && history.at(-1)?.content === message) history.pop()
     } else {
       const [created] = await db
         .insert(chatConversation)

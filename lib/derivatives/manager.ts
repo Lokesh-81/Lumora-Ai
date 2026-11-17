@@ -1,5 +1,3 @@
-import "server-only"
-
 // Derivatives Market Data Manager for Lumora AI
 // Manages Indian and Global derivative providers, failover, caching, and health diagnostics.
 

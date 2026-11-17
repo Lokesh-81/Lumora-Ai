@@ -1,3 +1,5 @@
+import "server-only"
+
 // Lumora AI service — powered by Google Gemini 3.7 Flash.
 //
 // The rest of the application imports ONLY the functions below and never learns
@@ -1216,7 +1218,6 @@ Output the analysis as JSON using exactly this schema (no extra fields, no missi
       { role: "user", content: userPrompt },
     ], { temperature: 0.35, responseFormat: { type: "json_object" }, timeout: 25000 })
 
-    console.log("[Provider] Raw AI generateAnalysis response:", text)
 
     const parsed = parseJsonResponse<Omit<Analysis, "disclaimer">>(text, "instrument analysis")
     const overrides: Partial<Analysis> = {}
@@ -1257,7 +1258,6 @@ Calculate exact, non-trivial price numbers from the technical levels provided.`
           { role: "user", content: retryPrompt },
         ], { temperature: 0.2, responseFormat: { type: "json_object" }, timeout: 25000 })
 
-        console.log("[Provider] Raw AI regenerateAnalysis response:", retryText)
         const retryParsed = parseJsonResponse<Omit<Analysis, "disclaimer">>(retryText, "instrument analysis retry")
         const retryMerged = { ...retryParsed, ...overrides, disclaimer: DISCLAIMER } as Analysis
         cleanAnalysis = sanitizeAnalysis(retryMerged)
@@ -1270,7 +1270,7 @@ Calculate exact, non-trivial price numbers from the technical levels provided.`
           cleanAnalysis.stopLoss
         )
       } catch (retryErr) {
-        console.error("[Provider] Regeneration attempt failed:", retryErr)
+        console.warn("[Provider] Regeneration attempt failed.")
       }
     }
 

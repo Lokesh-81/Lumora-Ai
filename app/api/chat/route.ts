@@ -5,7 +5,7 @@ import { chatConversation, chatMessage } from "@/lib/db/schema"
 import { streamChat, chatMarketContext, CHAT_SYSTEM, generateAnalysis, type ChatMessageInput } from "@/lib/ai/provider"
 import { buildInstrumentContext } from "@/lib/context"
 import { eq, and } from "drizzle-orm"
-import { rateLimit, clientIp } from "@/lib/ratelimit"
+import { enforceRateLimit, clientIp } from "@/lib/ratelimit"
 import { logActivity } from "@/app/actions/activity"
 
 export const runtime = "nodejs"
@@ -78,15 +78,8 @@ RESPONSE FORMAT RULES (apply to every reply):
 - NEVER say "I don't have live market data" or "I lack real-time data" when SELECTED SYMBOL CONTEXT or LIVE MARKET DATA is present — you DO have it. Use it.`
 
 export async function POST(req: Request) {
-  const rl = rateLimit(`chat:${clientIp(req)}`, 5, 60_000)
-  if (!rl.ok) return Response.json({ error: "Too many requests. Please wait before sending another message." }, { status: 429 })
-
-  let body: { conversationId?: number; message?: string; history?: IncomingMessage[]; symbol?: string; timeframe?: string }
-  try {
-    body = await req.json()
-  } catch {
-    return Response.json({ error: "Invalid request body." }, { status: 400 })
-  }
+  const rateLimitResponse1 = await enforceRateLimit(`chat:${clientIp(req)}`, 5, 60_000)
+  if (rateLimitResponse1) return rateLimitResponse1
 
   const message = body.message?.trim()
   if (!message) {

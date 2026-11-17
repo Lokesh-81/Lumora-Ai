@@ -137,8 +137,10 @@ const _auth = betterAuth({
     ? {
         advanced: {
           defaultCookieAttributes: {
-            sameSite: "lax" as const,
-            secure: false,
+            // Keep secure cross-site cookies for supported preview/embedded
+            // development environments; production uses Better Auth defaults.
+            sameSite: "none" as const,
+            secure: true,
           },
         },
       }

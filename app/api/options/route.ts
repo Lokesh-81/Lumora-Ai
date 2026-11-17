@@ -9,6 +9,14 @@ export async function GET(req: Request) {
   const rateLimitResponse1 = await enforceRateLimit(`options:${clientIp(req)}`, 20, 60_000)
   if (rateLimitResponse1) return rateLimitResponse1
 
+  const { searchParams } = new URL(req.url)
+  const symbol = searchParams.get("symbol")?.trim().toUpperCase()
+  const expiry = searchParams.get("expiry")?.trim() || undefined
+
+  if (!symbol) {
+    return NextResponse.json({ available: providers.map((p) => p.name), error: "Missing symbol" }, { status: 400 })
+  }
+
   try {
     const data = await getOptionChain({ symbol, expiry })
     if (!data) {

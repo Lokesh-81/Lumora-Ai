@@ -19,6 +19,20 @@ export async function GET(req: Request) {
   const rateLimitResponse1 = await enforceRateLimit(`search:${clientIp(req)}`, 60, 60_000)
   if (rateLimitResponse1) return rateLimitResponse1
 
+  const { searchParams } = new URL(req.url)
+  const q = searchParams.get("q") ?? ""
+  const trimmed = q.trim()
+  if (!trimmed) return NextResponse.json({ results: [] })
+
+  if (trimmed.length >= 2) {
+    logActivity({
+      type: "search",
+      title: `Searched for "${trimmed}"`,
+      ticker: trimmed.toUpperCase(),
+      href: `/markets?symbol=${trimmed.toUpperCase()}`,
+    }).catch(() => {})
+  }
+
   const isPartial = isPartialDerivativeQuery(trimmed)
   const parsed = parseInstrument(trimmed)
 

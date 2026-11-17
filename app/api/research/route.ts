@@ -36,7 +36,7 @@ export async function POST(req: Request) {
       err instanceof AiBillingError
         ? "Research is temporarily unavailable — quota exceeded."
         : err instanceof AiConfigError
-          ? "Research is not configured. Add a GEMINI_API_KEY in Project Settings to enable it."
+          ? "Research is temporarily unavailable. Please try again later."
           : "Research is temporarily unavailable — the model provider returned an error."
     console.error("[Lumora AI] research failed", getAiErrorDiagnostic(err))
     return NextResponse.json({ error: message, disclaimer: DISCLAIMER }, { status: 200 })

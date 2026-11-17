@@ -6,7 +6,7 @@ import { AnimatePresence, motion } from "motion/react"
 import { authClient, useSession } from "@/lib/auth-client";
 import { logActivity } from "@/app/actions/activity";
 import { formatCurrency } from "@/lib/utils";
-import { parseNumericPrice } from "@/lib/ai/provider";
+import { parseNumericPrice } from "@/lib/ai/price-utils";
 import type { Indicators } from "@/lib/indicators"
 import {
   Loader2,

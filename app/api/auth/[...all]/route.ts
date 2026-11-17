@@ -8,20 +8,9 @@ import { enforceRateLimit, clientIp } from "@/lib/ratelimit"
 const betterHandler = toNextJsHandler(auth.handler)
 
 export const GET = async (req: Request) => {
+  const limited = await enforceRateLimit(`auth:get:${clientIp(req)}`, 60, 60_000, "Too many authentication requests.")
+  if (limited) return limited
   return betterHandler.GET(req)
-}
-
-export const OPTIONS = async (req: Request) => {
-  const origin = req.headers.get("origin") || "*"
-  return new Response(null, {
-    status: 204,
-    headers: {
-      "Access-Control-Allow-Origin": origin,
-      "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type, Authorization, Cookie",
-      "Access-Control-Allow-Credentials": "true",
-    },
-  })
 }
 
 function normalizeEmail(email: string): string {
@@ -48,15 +37,15 @@ function error(msg: string, status: number): Response {
 }
 
 export async function POST(request: Request) {
+  const ip = clientIp(request)
+  const globalLimit = await enforceRateLimit(`auth:post:${ip}`, 30, 60_000, "Too many authentication requests.")
+  if (globalLimit) return globalLimit
+
   const url = new URL(request.url)
   const path = url.pathname
   const body = await request.clone().json().catch(() => ({}))
   const email = body.email as string | undefined
   const normalizedEmail = email ? normalizeEmail(email) : undefined
-
-  console.log("[OTP-TRACE] SERVER POST", { path, email: normalizedEmail, ua: request.headers.get("user-agent")?.slice(0, 40) })
-
-  const ip = clientIp(request)
 
   // ── Sign-up ──────────────────────────────────────────────────
   if (path === "/api/auth/sign-up/email") {
@@ -140,7 +129,8 @@ async function safeForward(request: Request, body?: Record<string, any>): Promis
       const resBody = await cloned.json().catch(() => ({}))
       const msg = String((resBody as Record<string, unknown>)?.message || (resBody as Record<string, unknown>)?.error || "Request failed.")
       if (response.status >= 500) {
-        console.error("[AUTH API 5xx BODY]", JSON.stringify({ status: response.status, body: resBody }, null, 2))
+        console.error("[AUTH] upstream authentication service failure", { status: response.status })
+        return error("Authentication is temporarily unavailable. Please try again.", 503)
       }
       if (response.status === 422 || response.status === 409) {
         return error("An account with this email already exists. Please sign in instead.", 409)
@@ -186,15 +176,7 @@ async function safeForward(request: Request, body?: Record<string, any>): Promis
       console.warn("[AUTH] incompatible stored password hash for sign-in; returning 401")
       return error("Invalid email or password", 401)
     }
-    const sql = err?.cause?.code || err?.code || err?.meta?.code || err?.meta?.target || null
-    console.error("[AUTH API THROW]", JSON.stringify({
-      name: err?.name,
-      message: err?.message,
-      cause: err?.cause ? (typeof err.cause === "object" ? JSON.stringify(err.cause) : String(err.cause)) : undefined,
-      sqlCode: sql,
-      sqlMessage: err?.meta?.message || err?.cause?.message || null,
-      stack: err?.stack,
-    }, null, 2))
+    console.error("[AUTH] request failed", { name: err?.name || "Error" })
     return error("An internal error occurred. Please try again.", 500)
   }
 }

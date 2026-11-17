@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server"
 import { getEmailHistory, getActiveProviderName } from "@/lib/email"
 import { getCurrentUser } from "@/lib/session"
+import { enforceRateLimit, clientIp } from "@/lib/ratelimit"
 
-export async function GET() {
+export async function GET(req: Request) {
+  const limited = await enforceRateLimit(`email-history:${clientIp(req)}`, 20, 60_000)
+  if (limited) return limited
+
   const user = await getCurrentUser()
   if (!user || !user.email) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })

@@ -62,7 +62,7 @@ export function rateLimit(key: string, limit = 20, windowMs = 60_000): RateLimit
 export function clientIp(req: Request): string {
   const h = req.headers
   const candidates = [
-    h.get("x-vercel-forwarded-for"),
+    h.get("x-vercel-forwarded-for")?.split(",")[0]?.trim(),
     h.get("cf-connecting-ip"),
     h.get("x-real-ip"),
     h.get("x-forwarded-for")?.split(",")[0]?.trim(),
@@ -133,7 +133,7 @@ export async function enforceRateLimit(
     if (parsedUrl.protocol !== "https:") throw new Error("Invalid Redis endpoint protocol")
 
     const now = Date.now()
-    const response = await fetch(redisUrl.replace(/\\/+$/, "") + "/", {
+    const response = await fetch(redisUrl.replace(/\/+$/, "") + "/", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${redisToken}`,

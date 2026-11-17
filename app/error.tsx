@@ -1,6 +1,5 @@
 "use client"
 
-import { useEffect } from "react"
 import { AmbientBackground } from "@/components/ambient-background"
 
 export default function ErrorPage({
@@ -10,10 +9,6 @@ export default function ErrorPage({
   error: Error & { digest?: string }
   reset: () => void
 }) {
-  useEffect(() => {
-    console.error("[ErrorPage]", error)
-  }, [error])
-
   return (
     <div className="relative min-h-screen flex items-center justify-center p-6 bg-[var(--bg-space,#030712)] text-[var(--text-primary,#ffffff)]">
       <AmbientBackground />

@@ -1,19 +1,14 @@
 import { NextResponse } from "next/server"
 import { buildInstrumentContext } from "@/lib/context"
 import { generateInvestmentResearch, getAiErrorDiagnostic, DISCLAIMER, AiConfigError, AiBillingError } from "@/lib/ai/provider"
-import { rateLimit, clientIp } from "@/lib/ratelimit"
+import { enforceRateLimit, clientIp } from "@/lib/ratelimit"
 
 export const runtime = "nodejs"
 export const maxDuration = 60
 
 export async function POST(req: Request) {
-  const limit = rateLimit(`research:${clientIp(req)}`, 10, 60_000)
-  if (!limit.ok) {
-    return NextResponse.json(
-      { error: "Too many requests. Please wait a moment and try again." },
-      { status: 429, headers: { "Retry-After": String(Math.ceil((limit.resetAt - Date.now()) / 1000)) } },
-    )
-  }
+  const rateLimitResponse1 = await enforceRateLimit(`research:${clientIp(req)}`, 10, 60_000)
+  if (rateLimitResponse1) return rateLimitResponse1
 
   let body: { symbol?: string }
   try {

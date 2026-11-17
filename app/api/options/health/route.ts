@@ -6,26 +6,21 @@ export const runtime = "nodejs"
 export const maxDuration = 10
 
 export async function GET(req: Request) {
-  const rateLimitResponse1 = await enforceRateLimit(`options-health:${clientIp(req)}`, 30, 60_000)
-  if (rateLimitResponse1) return rateLimitResponse1
+  const limited = await enforceRateLimit(`options-health:${clientIp(req)}`, 30, 60_000)
+  if (limited) return limited
 
   try {
     const health = await derivativeManager.getAllProviderHealth()
-    const configuredCount = health.filter((h) => h.isConfigured).length
+    const configuredCount = health.filter((provider) => provider.isConfigured).length
 
+    // Expose only coarse availability. Never return provider diagnostics,
+    // authentication errors, account identifiers, or upstream messages.
     return NextResponse.json({
-      timestamp: Date.now(),
       status: configuredCount > 0 ? "FEED_AVAILABLE" : "AUTHENTICATION_REQUIRED",
-      summary: `${configuredCount} of ${health.length} Indian broker market data providers configured.`,
-      providers: health,
-    })
-  } catch (err: any) {
-    return NextResponse.json(
-      {
-        error: "Failed to check provider health",
-        message: err?.message,
-      },
-      { status: 500 }
-    )
+      configuredProviders: configuredCount,
+      providerCount: health.length,
+    }, { headers: { "Cache-Control": "no-store" } })
+  } catch {
+    return NextResponse.json({ error: "Provider health is temporarily unavailable." }, { status: 503 })
   }
 }

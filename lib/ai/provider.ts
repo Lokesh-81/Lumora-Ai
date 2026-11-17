@@ -284,7 +284,7 @@ async function aiChat(
       lastError = err
       const duration = Date.now() - startTime
       const errMsg = (err as Error).message ?? String(err)
-      console.warn(`[AI Trace] FAILED: Provider ${candidate.provider.toUpperCase()} (model: ${candidate.model}) failed after ${duration}ms with error: ${errMsg}`)
+      console.warn(`[AI Trace] Provider ${candidate.provider.toUpperCase()} (model: ${candidate.model}) failed after ${duration}ms.`)
 
       // If high demand (503), rate limit (429), or timeout, put model in cooldown
       if (isRetryableError(err) || /503|UNAVAILABLE|high demand/i.test(errMsg)) {
@@ -584,7 +584,7 @@ export async function* streamChat(
     } catch (err) {
       lastError = err
       const errMsg = (err as Error).message ?? String(err)
-      console.warn(`[StreamChat] ${candidate.provider} (${candidate.model}) stream failed:`, errMsg)
+      console.warn(`[StreamChat] ${candidate.provider} (${candidate.model}) stream failed.`)
 
       if (candidate.provider === "gemini" && /\bAPI_KEY_INVALID\b|\bunauthenticated\b|\b401\b/i.test(errMsg)) {
         while (i + 1 < candidates.length && candidates[i + 1].provider === "gemini") i++
@@ -1290,7 +1290,7 @@ Calculate exact, non-trivial price numbers from the technical levels provided.`
     // Step 6: Return final internally consistent, fully validated analysis
     return cleanAnalysis
   } catch (err) {
-    console.error("[Provider] generateAnalysis error:", (err as Error).name, (err as Error).message)
+    console.error("[Provider] generateAnalysis failed:", (err as Error).name)
     throw classify(err)
   }
 }

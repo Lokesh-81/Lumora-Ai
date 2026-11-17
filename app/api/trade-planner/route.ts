@@ -106,7 +106,7 @@ Assess this trade plan. Is it a Buy or Wait opportunity? Provide a better entry 
       err instanceof AiBillingError
         ? "AI analysis is temporarily unavailable — quota exhausted."
         : err instanceof AiConfigError
-          ? "AI analysis is not configured. Add a GEMINI_API_KEY in Project Settings to enable it."
+          ? "AI analysis is temporarily unavailable. Please try again later."
           : "AI analysis temporarily unavailable."
     console.error("[Trade Planner] AI error", getAiErrorDiagnostic(err))
     return NextResponse.json({

@@ -8,8 +8,9 @@ import { logActivity } from "@/app/actions/activity"
 export const runtime = "nodejs"
 export const maxDuration = 30
 
-function log(...args: unknown[]) {
-  console.log("[Analyze]", ...args)
+function log(..._args: unknown[]) {
+  // Request bodies and upstream diagnostics may contain user-supplied data.
+  // Keep production request payloads out of application logs.
 }
 
 export async function POST(req: Request) {

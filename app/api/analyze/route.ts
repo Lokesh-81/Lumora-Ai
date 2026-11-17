@@ -2,27 +2,22 @@ import { NextResponse } from "next/server"
 import { buildInstrumentContext } from "@/lib/context"
 import { generateAnalysis, getAiErrorDiagnostic, DISCLAIMER, AiConfigError, AiBillingError, AiOverloadedError } from "@/lib/ai/provider"
 import type { ReasoningObject } from "@/lib/ai/engine/reasoning"
-import { rateLimit, clientIp } from "@/lib/ratelimit"
+import { enforceRateLimit, clientIp } from "@/lib/ratelimit"
 import { logActivity } from "@/app/actions/activity"
 
 export const runtime = "nodejs"
 export const maxDuration = 30
 
-function log(...args: unknown[]) {
-  console.log("[Analyze]", ...args)
+function log(..._args: unknown[]) {
+  // Request bodies and upstream diagnostics may contain user-supplied data.
+  // Keep production request payloads out of application logs.
 }
 
 export async function POST(req: Request) {
   log("=== AI ANALYSIS REQUEST ===")
 
-  const limit = rateLimit(`analyze:${clientIp(req)}`, 15, 60_000)
-  if (!limit.ok) {
-    log("Rate limited", clientIp(req))
-    return NextResponse.json(
-      { error: "Too many requests. Please wait a moment and try again." },
-      { status: 429, headers: { "Retry-After": String(Math.ceil((limit.resetAt - Date.now()) / 1000)) } },
-    )
-  }
+  const rateLimitResponse1 = await enforceRateLimit(`analyze:${clientIp(req)}`, 15, 60_000)
+  if (rateLimitResponse1) return rateLimitResponse1
 
   let body: { symbol?: string; horizon?: string }
   try {

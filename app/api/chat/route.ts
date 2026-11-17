@@ -5,7 +5,7 @@ import { chatConversation, chatMessage } from "@/lib/db/schema"
 import { streamChat, chatMarketContext, CHAT_SYSTEM, generateAnalysis, type ChatMessageInput } from "@/lib/ai/provider"
 import { buildInstrumentContext } from "@/lib/context"
 import { eq, and } from "drizzle-orm"
-import { rateLimit, clientIp } from "@/lib/ratelimit"
+import { enforceRateLimit, clientIp } from "@/lib/ratelimit"
 import { logActivity } from "@/app/actions/activity"
 
 export const runtime = "nodejs"
@@ -78,8 +78,8 @@ RESPONSE FORMAT RULES (apply to every reply):
 - NEVER say "I don't have live market data" or "I lack real-time data" when SELECTED SYMBOL CONTEXT or LIVE MARKET DATA is present — you DO have it. Use it.`
 
 export async function POST(req: Request) {
-  const rl = rateLimit(`chat:${clientIp(req)}`, 5, 60_000)
-  if (!rl.ok) return Response.json({ error: "Too many requests. Please wait before sending another message." }, { status: 429 })
+  const rateLimitResponse1 = await enforceRateLimit(`chat:${clientIp(req)}`, 5, 60_000)
+  if (rateLimitResponse1) return rateLimitResponse1
 
   let body: { conversationId?: number; message?: string; history?: IncomingMessage[]; symbol?: string; timeframe?: string }
   try {
@@ -134,7 +134,7 @@ export async function POST(req: Request) {
       logActivity({ type: "chat", title: `Asked Lumora AI: ${preview}`, href: "/chat" }).catch(() => {})
     }
   } catch (err) {
-    console.error("[Chat] conversation setup failed", err)
+    console.error("[Chat] conversation setup failed")
     return Response.json({ error: "Could not start the chat. Please try again." }, { status: 500 })
   }
 
@@ -175,7 +175,7 @@ export async function POST(req: Request) {
           }
         }
       } catch (err) {
-        console.error("[Chat]", err)
+        console.error("[Chat] model request failed")
         send({ type: "error", message: "Analysis failed. Please try again." })
       } finally {
         if (assistantText) {

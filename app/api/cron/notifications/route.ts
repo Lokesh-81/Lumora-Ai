@@ -75,11 +75,11 @@ async function handleCron(req: Request) {
       timestamp: new Date().toISOString(),
     })
   } catch (err) {
-    console.error("[Cron Notifications Error]", err)
+    console.error("[Cron Notifications Error]", { name: err instanceof Error ? err.name : "UnknownError" })
     return NextResponse.json(
       {
         success: false,
-        error: err instanceof Error ? err.message : "Failed to run scheduled notifications job",
+        error: "Failed to run scheduled notifications job",
       },
       { status: 500 },
     )

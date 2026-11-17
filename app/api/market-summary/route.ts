@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { getQuotes, REGION_CONFIG, displayName, type Region } from "@/lib/market"
 import { generateMarketSummary, getAiErrorDiagnostic, DISCLAIMER, AiConfigError, AiBillingError } from "@/lib/ai/provider"
-import { rateLimit, clientIp } from "@/lib/ratelimit"
+import { enforceRateLimit, clientIp } from "@/lib/ratelimit"
 
 export const runtime = "nodejs"
 export const maxDuration = 30
@@ -9,13 +9,8 @@ export const maxDuration = 30
 const VALID_REGIONS: Region[] = ["IN", "US", "GB", "JP", "GLOBAL"]
 
 export async function GET(req: Request) {
-  const limit = rateLimit(`summary:${clientIp(req)}`, 20, 60_000)
-  if (!limit.ok) {
-    return NextResponse.json(
-      { error: "Too many requests. Please wait a moment and try again." },
-      { status: 429, headers: { "Retry-After": String(Math.ceil((limit.resetAt - Date.now()) / 1000)) } },
-    )
-  }
+  const rateLimitResponse1 = await enforceRateLimit(`summary:${clientIp(req)}`, 20, 60_000)
+  if (rateLimitResponse1) return rateLimitResponse1
 
   const { searchParams } = new URL(req.url)
   const raw = (searchParams.get("region") ?? "GLOBAL").toUpperCase() as Region
@@ -46,7 +41,7 @@ export async function GET(req: Request) {
       err instanceof AiBillingError
         ? "Market summary is temporarily unavailable — quota exceeded."
         : err instanceof AiConfigError
-          ? "Market summary is not configured. Add a GEMINI_API_KEY in Project Settings to enable it."
+          ? "Market summary is temporarily unavailable. Please try again later."
           : "Market summary is temporarily unavailable — the model provider returned an error."
     console.error("[Lumora AI] market summary failed", getAiErrorDiagnostic(err))
     return NextResponse.json({ summary: "", movers, region, error: message }, { status: 200 })

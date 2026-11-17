@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getUserId } from "@/lib/session"
-import { rateLimit, clientIp } from "@/lib/ratelimit"
+import { enforceRateLimit, clientIp } from "@/lib/ratelimit"
 
 export const runtime = "nodejs"
 
@@ -34,13 +34,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const rl = rateLimit(`upload:${userId}:${clientIp(req)}`, 8, 60_000)
-    if (!rl.ok) {
-      return NextResponse.json(
-        { error: "Too many uploads. Please wait before trying again." },
-        { status: 429, headers: { "Retry-After": String(Math.ceil((rl.resetAt - Date.now()) / 1000)) } },
-      )
-    }
+    const rateLimitResponse1 = await enforceRateLimit(`upload:${userId}:${clientIp(req)}`, 8, 60_000)
+    if (rateLimitResponse1) return rateLimitResponse1
 
     const declaredLength = Number(req.headers.get("content-length") || 0)
     if (declaredLength > MAX_FILE_SIZE + 64 * 1024) {
@@ -69,7 +64,7 @@ export async function POST(req: NextRequest) {
     const dataUrl = `data:${mimeType};base64,${buffer.toString("base64")}`
     return NextResponse.json({ url: dataUrl, success: true }, { headers: { "Cache-Control": "no-store" } })
   } catch (err) {
-    console.error("[Upload] Request failed", err)
+    console.error("[Upload] Request failed")
     return NextResponse.json({ error: "Upload failed. Please try again." }, { status: 500 })
   }
 }

@@ -28,6 +28,9 @@ const nextConfig = {
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
           { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), payment=()" },
           { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
+          { key: "X-Permitted-Cross-Domain-Policies", value: "none" },
+          { key: "X-DNS-Prefetch-Control", value: "off" },
+          { key: "Origin-Agent-Cluster", value: "?1" },
           { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" },
         ],
       },
@@ -42,10 +45,5 @@ const nextConfig = {
   },
 }
 
-// Build-time env diagnostic — logs SMTP key names only (never values)
-const smtpKeys = Object.keys(process.env).filter((key) => key.startsWith("SMTP"))
-console.log("[BUILD:DENV] SMTP keys present:", JSON.stringify(smtpKeys))
-console.log("[BUILD:DENV] VERCEL_ENV:", process.env.VERCEL_ENV ?? "not set")
-console.log("[BUILD:DENV] NODE_ENV:", process.env.NODE_ENV ?? "not set")
 
 export default nextConfig

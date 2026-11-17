@@ -1,14 +1,14 @@
 import { NextResponse } from "next/server"
 import { generateText } from "@/lib/ai/provider"
 import { AiConfigError, AiBillingError, getAiErrorDiagnostic } from "@/lib/ai/provider"
-import { rateLimit, clientIp } from "@/lib/ratelimit"
+import { enforceRateLimit, clientIp } from "@/lib/ratelimit"
 
 export const runtime = "nodejs"
 export const maxDuration = 60
 
 export async function POST(req: Request) {
-  const rl = rateLimit(`trade-planner:${clientIp(req)}`, 10, 60_000)
-  if (!rl.ok) return NextResponse.json({ error: "Too many requests. Please try again later." }, { status: 429 })
+  const rateLimitResponse1 = await enforceRateLimit(`trade-planner:${clientIp(req)}`, 10, 60_000)
+  if (rateLimitResponse1) return rateLimitResponse1
 
   let body: {
     symbol: string
@@ -106,7 +106,7 @@ Assess this trade plan. Is it a Buy or Wait opportunity? Provide a better entry 
       err instanceof AiBillingError
         ? "AI analysis is temporarily unavailable — quota exhausted."
         : err instanceof AiConfigError
-          ? "AI analysis is not configured. Add a GEMINI_API_KEY in Project Settings to enable it."
+          ? "AI analysis is temporarily unavailable. Please try again later."
           : "AI analysis temporarily unavailable."
     console.error("[Trade Planner] AI error", getAiErrorDiagnostic(err))
     return NextResponse.json({

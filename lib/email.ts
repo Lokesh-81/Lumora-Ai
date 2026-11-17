@@ -1,3 +1,5 @@
+import "server-only"
+
 import { sendEmail, getActiveProviderName, getEmailHistory } from "@/lib/email/index"
 import { createCorrelationId } from "@/lib/email/adapter"
 

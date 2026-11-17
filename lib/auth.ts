@@ -1,3 +1,5 @@
+import "server-only"
+
 import { betterAuth } from "better-auth"
 import { emailOTP } from "better-auth/plugins"
 import { pool } from "@/lib/db"

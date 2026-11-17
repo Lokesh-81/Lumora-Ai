@@ -235,8 +235,8 @@ export default function TermsPage() {
                     </p>
                     <div className="mt-4 flex items-center gap-3 rounded-xl border border-[var(--line)] bg-[var(--surface-alt)] px-4 py-3">
                       <Mail className="h-4 w-4 text-muted-foreground" />
-                      <a href="mailto:support@lumora.app" className="text-sm font-medium text-foreground hover:text-gold transition-colors">
-                        support@lumora.app
+                      <a href="mailto:support@lumoraai.in" className="text-sm font-medium text-foreground hover:text-gold transition-colors">
+                        support@lumoraai.in
                       </a>
                     </div>
                   </Section>

@@ -1,3 +1,5 @@
+import "server-only"
+
 // Lumora AI service — powered by Google Gemini 3.7 Flash.
 //
 // The rest of the application imports ONLY the functions below and never learns
@@ -282,7 +284,7 @@ async function aiChat(
       lastError = err
       const duration = Date.now() - startTime
       const errMsg = (err as Error).message ?? String(err)
-      console.warn(`[AI Trace] FAILED: Provider ${candidate.provider.toUpperCase()} (model: ${candidate.model}) failed after ${duration}ms with error: ${errMsg}`)
+      console.warn(`[AI Trace] Provider ${candidate.provider.toUpperCase()} (model: ${candidate.model}) failed after ${duration}ms.`)
 
       // If high demand (503), rate limit (429), or timeout, put model in cooldown
       if (isRetryableError(err) || /503|UNAVAILABLE|high demand/i.test(errMsg)) {
@@ -582,7 +584,7 @@ export async function* streamChat(
     } catch (err) {
       lastError = err
       const errMsg = (err as Error).message ?? String(err)
-      console.warn(`[StreamChat] ${candidate.provider} (${candidate.model}) stream failed:`, errMsg)
+      console.warn(`[StreamChat] ${candidate.provider} (${candidate.model}) stream failed.`)
 
       if (candidate.provider === "gemini" && /\bAPI_KEY_INVALID\b|\bunauthenticated\b|\b401\b/i.test(errMsg)) {
         while (i + 1 < candidates.length && candidates[i + 1].provider === "gemini") i++
@@ -1216,7 +1218,6 @@ Output the analysis as JSON using exactly this schema (no extra fields, no missi
       { role: "user", content: userPrompt },
     ], { temperature: 0.35, responseFormat: { type: "json_object" }, timeout: 25000 })
 
-    console.log("[Provider] Raw AI generateAnalysis response:", text)
 
     const parsed = parseJsonResponse<Omit<Analysis, "disclaimer">>(text, "instrument analysis")
     const overrides: Partial<Analysis> = {}
@@ -1257,7 +1258,6 @@ Calculate exact, non-trivial price numbers from the technical levels provided.`
           { role: "user", content: retryPrompt },
         ], { temperature: 0.2, responseFormat: { type: "json_object" }, timeout: 25000 })
 
-        console.log("[Provider] Raw AI regenerateAnalysis response:", retryText)
         const retryParsed = parseJsonResponse<Omit<Analysis, "disclaimer">>(retryText, "instrument analysis retry")
         const retryMerged = { ...retryParsed, ...overrides, disclaimer: DISCLAIMER } as Analysis
         cleanAnalysis = sanitizeAnalysis(retryMerged)
@@ -1270,7 +1270,7 @@ Calculate exact, non-trivial price numbers from the technical levels provided.`
           cleanAnalysis.stopLoss
         )
       } catch (retryErr) {
-        console.error("[Provider] Regeneration attempt failed:", retryErr)
+        console.warn("[Provider] Regeneration attempt failed.")
       }
     }
 
@@ -1290,7 +1290,7 @@ Calculate exact, non-trivial price numbers from the technical levels provided.`
     // Step 6: Return final internally consistent, fully validated analysis
     return cleanAnalysis
   } catch (err) {
-    console.error("[Provider] generateAnalysis error:", (err as Error).name, (err as Error).message)
+    console.error("[Provider] generateAnalysis failed:", (err as Error).name)
     throw classify(err)
   }
 }
@@ -1367,51 +1367,8 @@ export function computeDeterministicTargets(
   }
 }
 
-export function parseNumericPrice(val: string | number | undefined | null): number | null {
-  if (val == null) return null
-  if (typeof val === "number") return isNaN(val) || !isFinite(val) ? null : val
-  const str = String(val).trim()
-  if (!str) return null
-
-  // Direct Number parse if clean string is a valid floating point number
-  const cleanStr = str.replace(/[₹$€£¥,]/g, "").trim()
-  const directNum = Number(cleanStr)
-  if (!isNaN(directNum) && isFinite(directNum)) {
-    return directNum
-  }
-
-  // 1. Explicit currency match: e.g. ₹ 738.35, $738.35, €738
-  const currencyMatch = str.match(/[₹$€£¥]\s*([0-9]+(?:,[0-9]+)*(?:\.[0-9]+)?)/)
-  if (currencyMatch && currencyMatch[1]) {
-    const num = parseFloat(currencyMatch[1].replace(/,/g, ""))
-    if (!isNaN(num) && isFinite(num)) return num
-  }
-
-  // 2. Clean out common labels containing ordinal numbers ("Target 1", "Target 2", etc.)
-  const cleaned = str
-    .replace(/\btarget\s*\d+\b/gi, "")
-    .replace(/\bresistance\s*\d+\b/gi, "")
-    .replace(/\bsupport\s*\d+\b/gi, "")
-    .replace(/\bstop\s*loss\b/gi, "")
-    .replace(/\bentry\b/gi, "")
-    .replace(/\bstep\s*\d+\b/gi, "")
-    .trim()
-
-  const numMatch = cleaned.match(/([0-9]+(?:,[0-9]+)*(?:\.[0-9]+)?)/)
-  if (numMatch && numMatch[1]) {
-    const num = parseFloat(numMatch[1].replace(/,/g, ""))
-    if (!isNaN(num) && isFinite(num)) return num
-  }
-
-  // 3. Fallback: search string for any floating point or integer number
-  const match = str.match(/-?\d+(?:\.\d+)?/)
-  if (match) {
-    const num = parseFloat(match[0])
-    if (!isNaN(num) && isFinite(num)) return num
-  }
-
-  return null
-}
+export { parseNumericPrice } from "@/lib/ai/price-utils"
+import { parseNumericPrice } from "@/lib/ai/price-utils"
 
 export function validateTradingTargets(
   rec: string,

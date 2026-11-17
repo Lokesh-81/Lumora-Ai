@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { getNews } from "@/lib/news"
 import { displayName } from "@/lib/market"
 import { generateNewsSentiment, getAiErrorDiagnostic } from "@/lib/ai/provider"
-import { rateLimit, clientIp } from "@/lib/ratelimit"
+import { enforceRateLimit, clientIp } from "@/lib/ratelimit"
 
 export const runtime = "nodejs"
 export const maxDuration = 30
@@ -19,8 +19,8 @@ type AnalyzedNews = {
 }
 
 export async function GET(req: Request) {
-  const rl = rateLimit(`news:${clientIp(req)}`, 10, 60_000)
-  if (!rl.ok) return NextResponse.json({ error: "Too many requests." }, { status: 429 })
+  const rateLimitResponse1 = await enforceRateLimit(`news:${clientIp(req)}`, 10, 60_000)
+  if (rateLimitResponse1) return rateLimitResponse1
 
   const { searchParams } = new URL(req.url)
   const symbol = searchParams.get("symbol")?.trim()

@@ -22,6 +22,19 @@ export async function GET(req: Request) {
   const rateLimitResponse1 = await enforceRateLimit(`news:${clientIp(req)}`, 10, 60_000)
   if (rateLimitResponse1) return rateLimitResponse1
 
+  const { searchParams } = new URL(req.url)
+  const symbol = searchParams.get("symbol")?.trim()
+  if (!symbol) return NextResponse.json({ items: [], overall: "neutral" })
+
+  const raw = await getNews(symbol, 10)
+  if (raw.length === 0) {
+    return NextResponse.json({
+      items: [],
+      overall: "neutral",
+      summary: "No recent headlines found for this instrument.",
+    })
+  }
+
   const analyzed: AnalyzedNews[] = raw.map((n) => ({
     title: n.title,
     publisher: n.publisher,

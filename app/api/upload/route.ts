@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
     const dataUrl = `data:${mimeType};base64,${buffer.toString("base64")}`
     return NextResponse.json({ url: dataUrl, success: true }, { headers: { "Cache-Control": "no-store" } })
   } catch (err) {
-    console.error("[Upload] Request failed", err)
+    console.error("[Upload] Request failed")
     return NextResponse.json({ error: "Upload failed. Please try again." }, { status: 500 })
   }
 }

@@ -1,3 +1,5 @@
+import "server-only"
+
 // Per-instance sliding-window limiter. This is a useful application-layer
 // safety net, not a substitute for an edge/WAF or a shared Redis limiter.
 // On serverless deployments each warm instance has its own buckets.

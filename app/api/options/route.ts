@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { getOptionChain, providers } from "@/lib/options"
+import { getOptionChain } from "@/lib/options"
 import { enforceRateLimit, clientIp } from "@/lib/ratelimit"
 
 export const runtime = "nodejs"
@@ -14,7 +14,7 @@ export async function GET(req: Request) {
   const expiry = searchParams.get("expiry")?.trim() || undefined
 
   if (!symbol) {
-    return NextResponse.json({ available: providers.map((p) => p.name), error: "Missing symbol" }, { status: 400 })
+    return NextResponse.json({ error: "Missing symbol" }, { status: 400 })
   }
 
   try {

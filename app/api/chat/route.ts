@@ -81,6 +81,13 @@ export async function POST(req: Request) {
   const rateLimitResponse1 = await enforceRateLimit(`chat:${clientIp(req)}`, 5, 60_000)
   if (rateLimitResponse1) return rateLimitResponse1
 
+  let body: { conversationId?: number; message?: string; history?: IncomingMessage[]; symbol?: string; timeframe?: string }
+  try {
+    body = await req.json()
+  } catch {
+    return Response.json({ error: "Invalid request body." }, { status: 400 })
+  }
+
   const message = body.message?.trim()
   if (!message) {
     return Response.json({ error: "A message is required." }, { status: 400 })

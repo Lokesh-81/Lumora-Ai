@@ -1,6 +1,5 @@
 "use client"
 
-import { useEffect } from "react"
 
 export default function GlobalError({
   error,
@@ -9,10 +8,6 @@ export default function GlobalError({
   error: Error & { digest?: string }
   reset: () => void
 }) {
-  useEffect(() => {
-    console.error("[GlobalError]", error)
-  }, [error])
-
   return (
     <html lang="en" className="dark">
       <body className="bg-[#030712] text-white min-h-screen flex items-center justify-center p-6 antialiased">

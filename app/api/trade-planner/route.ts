@@ -9,6 +9,17 @@ export const maxDuration = 60
 export async function POST(req: Request) {
   const rateLimitResponse1 = await enforceRateLimit(`trade-planner:${clientIp(req)}`, 10, 60_000)
   if (rateLimitResponse1) return rateLimitResponse1
+
+  let body: {
+    symbol: string
+    buyPrice: number
+    quantity: number
+    budget: number
+    target: number
+    stopLoss: number
+    holdingPeriod: string
+    riskLevel?: string
+  }
   try {
     body = await req.json()
   } catch {

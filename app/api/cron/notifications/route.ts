@@ -1,3 +1,4 @@
+import { timingSafeEqual } from "node:crypto"
 import { NextResponse } from "next/server"
 import { processIntelligentStockNotifications, processWhatsNewForUser } from "@/lib/notifications/stock-digest"
 import { db } from "@/lib/db"
@@ -16,22 +17,29 @@ export async function POST(req: Request) {
   return handleCron(req)
 }
 
+function safeSecretEqual(received: string, expected: string): boolean {
+  const a = Buffer.from(received)
+  const b = Buffer.from(expected)
+  return a.length === b.length && timingSafeEqual(a, b)
+}
+
 async function handleCron(req: Request) {
-  const authHeader = req.headers.get("authorization")
   const cronSecret = process.env.CRON_SECRET
+  if (!cronSecret || cronSecret.length < 32) {
+    console.error("[Lumora Security] CRON_SECRET is missing or too short; cron endpoint is disabled.")
+    return NextResponse.json({ error: "Cron endpoint is not configured." }, { status: 503 })
+  }
+
+  // Accept the secret only in the Authorization header. Query-string secrets
+  // leak into browser history, analytics, proxy logs, and referrer headers.
+  const authHeader = req.headers.get("authorization") || ""
+  const match = authHeader.match(/^Bearer\s+(.+)$/i)
+  if (!match || !safeSecretEqual(match[1], cronSecret)) {
+    return NextResponse.json({ error: "Unauthorized cron request" }, { status: 401 })
+  }
 
   const url = new URL(req.url)
-  const querySecret = url.searchParams.get("secret")
   const action = url.searchParams.get("action")
-
-  // If a CRON_SECRET is defined in environment, verify either Authorization header or ?secret= query param
-  if (cronSecret) {
-    const bearer = authHeader ? authHeader.replace(/^Bearer\s+/i, "") : null
-
-    if (bearer !== cronSecret && querySecret !== cronSecret) {
-      return NextResponse.json({ error: "Unauthorized cron request" }, { status: 401 })
-    }
-  }
 
   try {
     const startTime = Date.now()

@@ -4,11 +4,11 @@
   "private": true,
   "scripts": {
     "dev": "next dev -p 3000 -H 0.0.0.0",
-    "build": "next build",
+    "build": "next build --webpack",
     "start": "next start",
     "lint": "tsc --noEmit",
     "db:migrate": "drizzle-kit migrate",
-    "vercel-build": "next build",
+    "vercel-build": "next build --webpack",
     "test": "tsx --test tests/*.test.ts",
     "test:watch": "echo \"Install vitest for watch mode\""
   },
@@ -36,8 +36,8 @@
     "@types/react": "latest",
     "@types/react-dom": "latest",
     "drizzle-kit": "^0.31.10",
-    "postcss": "latest",
-    "tailwindcss": "latest",
+    "postcss": "^8.5.25",
+    "tailwindcss": "^4.3.3",
     "tsx": "^4.21.0",
     "typescript": "5.7.3"
   }

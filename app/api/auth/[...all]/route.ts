@@ -3,7 +3,7 @@ import { toNextJsHandler } from "better-auth/next-js"
 import { db } from "@/lib/db"
 import { user, activityLog } from "@/lib/db/schema"
 import { eq, and, lt, sql } from "drizzle-orm"
-import { rateLimit, clientIp } from "@/lib/ratelimit"
+import { enforceRateLimit, clientIp } from "@/lib/ratelimit"
 
 const betterHandler = toNextJsHandler(auth.handler)
 
@@ -60,12 +60,8 @@ export async function POST(request: Request) {
 
   // ── Sign-up ──────────────────────────────────────────────────
   if (path === "/api/auth/sign-up/email") {
-    const rl = rateLimit(`auth:signup:${ip}`, 5, 60_000)
-    if (!rl.ok) return json({ error: "Too many sign-up attempts. Please try again later." }, 429)
-
-    if (!body.agreedToLegal || !body.acceptedTerms || !body.acceptedPrivacyPolicy) {
-      return error("You must accept the Terms & Conditions and Privacy Policy.", 400)
-    }
+    const rateLimitResponse1 = await enforceRateLimit(`auth:signup:${ip}`, 5, 60_000)
+    if (rateLimitResponse1) return rateLimitResponse1
 
     if (normalizedEmail) {
       const found = await findUserByEmail(normalizedEmail)
@@ -93,24 +89,8 @@ export async function POST(request: Request) {
 
   // ── Send OTP ──────────────────────────────────────────────────
   if ((path === "/api/auth/email-otp/send-verification-otp" || path === "/api/auth/email-otp/request-password-reset") && normalizedEmail) {
-    const rl = rateLimit(`auth:send-otp:${ip}`, 3, 60_000)
-    if (!rl.ok) return json({ error: "Too many OTP requests. Please wait before trying again." }, 429)
-
-    const otpType: string = body.type || (path.includes("request-password-reset") ? "forget-password" : "")
-    const found = await findUserByEmail(normalizedEmail)
-
-    if (otpType === "email-verification") {
-      if (!found) {
-        return error("No account found for this email. Please sign up first.", 404)
-      }
-      if (found.emailVerified) {
-        return error("This email is already verified. Please sign in instead.", 409)
-      }
-    } else if (otpType === "forget-password" || otpType === "password-reset") {
-      if (!found) {
-        return error("No account found for this email.", 404)
-      }
-    }
+    const rateLimitResponse2 = await enforceRateLimit(`auth:send-otp:${ip}`, 3, 60_000)
+    if (rateLimitResponse2) return rateLimitResponse2
 
     // Forward to better-auth which handles OTP generation + email
     return safeForward(request, body)
@@ -118,13 +98,8 @@ export async function POST(request: Request) {
 
   // ── Verify OTP ────────────────────────────────────────────────
   if (path === "/api/auth/email-otp/verify-email" && normalizedEmail) {
-    const rl = rateLimit(`auth:verify-otp:${ip}`, 10, 60_000)
-    if (!rl.ok) return json({ error: "Too many verification attempts. Please try again later." }, 429)
-
-    const found = await findUserByEmail(normalizedEmail)
-    if (!found) {
-      return error("No account found for this email. Please sign up first.", 404)
-    }
+    const rateLimitResponse3 = await enforceRateLimit(`auth:verify-otp:${ip}`, 10, 60_000)
+    if (rateLimitResponse3) return rateLimitResponse3
     return safeForward(request, body)
   }
 

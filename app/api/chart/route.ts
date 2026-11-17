@@ -19,3 +19,11 @@ const RANGE_INTERVAL: Record<string, string> = {
 export async function GET(req: Request) {
   const rateLimitResponse1 = await enforceRateLimit(`chart:${clientIp(req)}`, 30, 60_000)
   if (rateLimitResponse1) return rateLimitResponse1
+
+  const { searchParams } = new URL(req.url)
+  const symbol = searchParams.get("symbol") ?? ""
+  const range = searchParams.get("range") ?? "1mo"
+  const interval = RANGE_INTERVAL[range] ?? "1d"
+  const candles = await getChart(symbol, range, interval)
+  return NextResponse.json({ candles })
+}

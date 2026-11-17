@@ -63,6 +63,10 @@ export async function POST(request: Request) {
     const rateLimitResponse1 = await enforceRateLimit(`auth:signup:${ip}`, 5, 60_000)
     if (rateLimitResponse1) return rateLimitResponse1
 
+    if (!body.agreedToLegal || !body.acceptedTerms || !body.acceptedPrivacyPolicy) {
+      return error("You must accept the Terms & Conditions and Privacy Policy.", 400)
+    }
+
     if (normalizedEmail) {
       const found = await findUserByEmail(normalizedEmail)
       if (found) {
@@ -92,6 +96,22 @@ export async function POST(request: Request) {
     const rateLimitResponse2 = await enforceRateLimit(`auth:send-otp:${ip}`, 3, 60_000)
     if (rateLimitResponse2) return rateLimitResponse2
 
+    const otpType: string = body.type || (path.includes("request-password-reset") ? "forget-password" : "")
+    const found = await findUserByEmail(normalizedEmail)
+
+    if (otpType === "email-verification") {
+      if (!found) {
+        return error("No account found for this email. Please sign up first.", 404)
+      }
+      if (found.emailVerified) {
+        return error("This email is already verified. Please sign in instead.", 409)
+      }
+    } else if (otpType === "forget-password" || otpType === "password-reset") {
+      if (!found) {
+        return error("No account found for this email.", 404)
+      }
+    }
+
     // Forward to better-auth which handles OTP generation + email
     return safeForward(request, body)
   }
@@ -100,6 +120,11 @@ export async function POST(request: Request) {
   if (path === "/api/auth/email-otp/verify-email" && normalizedEmail) {
     const rateLimitResponse3 = await enforceRateLimit(`auth:verify-otp:${ip}`, 10, 60_000)
     if (rateLimitResponse3) return rateLimitResponse3
+
+    const found = await findUserByEmail(normalizedEmail)
+    if (!found) {
+      return error("No account found for this email. Please sign up first.", 404)
+    }
     return safeForward(request, body)
   }
 

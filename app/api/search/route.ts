@@ -8,7 +8,7 @@ import {
   INDEX_MAP,
   STOCK_MAP,
 } from "@/lib/instrument"
-import { rateLimit, clientIp } from "@/lib/ratelimit"
+import { enforceRateLimit, clientIp } from "@/lib/ratelimit"
 import { logActivity } from "@/app/actions/activity"
 
 export const runtime = "nodejs"
@@ -16,22 +16,8 @@ export const dynamic = "force-dynamic"
 export const fetchCache = "force-no-store"
 
 export async function GET(req: Request) {
-  const rl = rateLimit(`search:${clientIp(req)}`, 60, 60_000)
-  if (!rl.ok) return NextResponse.json({ error: "Too many requests." }, { status: 429 })
-
-  const { searchParams } = new URL(req.url)
-  const q = searchParams.get("q") ?? ""
-  const trimmed = q.trim()
-  if (!trimmed) return NextResponse.json({ results: [] })
-
-  if (trimmed.length >= 2) {
-    logActivity({
-      type: "search",
-      title: `Searched for "${trimmed}"`,
-      ticker: trimmed.toUpperCase(),
-      href: `/markets?symbol=${trimmed.toUpperCase()}`,
-    }).catch(() => {})
-  }
+  const rateLimitResponse1 = await enforceRateLimit(`search:${clientIp(req)}`, 60, 60_000)
+  if (rateLimitResponse1) return rateLimitResponse1
 
   const isPartial = isPartialDerivativeQuery(trimmed)
   const parsed = parseInstrument(trimmed)

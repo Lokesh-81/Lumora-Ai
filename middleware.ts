@@ -13,7 +13,7 @@ export function middleware(request: NextRequest) {
     return new NextResponse("Not Found", { status: 404, headers: { "Cache-Control": "no-store" } })
   }
 
-  if (blockedPath.test(decodedPath) || /(?:^|\/)\.\.(?:\/|$)/.test(decodedPath) || decodedPath.includes("\\0")) {
+  if (blockedPath.test(decodedPath) || /(?:^|\/)\.\.(?:\/|$)/.test(decodedPath) || decodedPath.includes("\0")) {
     return new NextResponse("Not Found", {
       status: 404,
       headers: { "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff" },

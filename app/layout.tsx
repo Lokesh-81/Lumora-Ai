@@ -5,7 +5,6 @@ import { ThemeProvider } from "@/components/theme-provider"
 import { AmbientBackground } from "@/components/ambient-background"
 import { PageTransition } from "@/components/page-transition"
 import { EntranceScreen } from "@/components/entrance-screen"
-import { CookieNotice } from "@/components/cookie-notice"
 import { getFullUser } from "@/lib/session"
 import type { ReactNode } from "react"
 import "./globals.css"
@@ -217,7 +216,6 @@ export default async function RootLayout({
           <EntranceScreen />
           <AmbientBackground />
           <PageTransition>{children}</PageTransition>
-          <CookieNotice />
         </ThemeProvider>
       </body>
     </html>
